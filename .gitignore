@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+
+# macOS
+.DS_Store
+
+# Electron
+electron-builder.yml
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+Thumbs.db

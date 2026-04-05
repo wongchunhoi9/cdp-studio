@@ -1,0 +1,492 @@
+// CDP Command Catalog — verified against CDP8 official documentation
+// Doc root: https://www.composersdesktop.com/docs/html/
+//
+// Argument order: program [mode] [modeNum] infile [infile2] outfile [params...] [-flags]
+//
+// Fields:
+//   program    — binary name
+//   mode       — first arg after binary (e.g. 'anal', 'radical', 'brassage')
+//   modeNum    — integer sub-mode, placed after mode  
+//   params     — positional params after outfile, in exact order
+//   flags      — optional flag params formatted as -{id}{value} (e.g. -c1024)
+//   inputExt   — required input extension(s)
+//   outputExt  — output extension
+//   twoInputs  — true if command takes two input files
+//   docUrl     — link to official CDP8 documentation page
+
+export const CDP_CATEGORIES = [
+  { id: 'pvoc',    label: 'PVOC — Spectral',   colour: '#8b5cf6' },
+  { id: 'blur',    label: 'BLUR — Spectral',    colour: '#06b6d4' },
+  { id: 'focus',   label: 'FOCUS — Spectral',   colour: '#a78bfa' },
+  { id: 'modify',  label: 'MODIFY — Time',      colour: '#3b82f6' },
+  { id: 'distort', label: 'DISTORT — Waveset',  colour: '#f59e0b' },
+  { id: 'grain',   label: 'GRAIN — Granular',   colour: '#ec4899' },
+  { id: 'extend',  label: 'EXTEND — Time-stretch', colour: '#f97316' },
+  { id: 'mix',     label: 'MIX — Combine',      colour: '#22c55e' },
+]
+
+export const CDP_COMMANDS = [
+
+  // ══ PVOC ══════════════════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cspecpvoc.htm
+
+  {
+    id: 'pvoc_anal',
+    program: 'pvoc',
+    mode: 'anal',
+    modeNum: 1,
+    label: 'PVOC Analyse',
+    category: 'pvoc',
+    description: 'Analyse a .wav into a spectral .ana file. REQUIRED before any PVOC/BLUR/FOCUS spectral process.',
+    inputExt: ['.wav'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecpvoc.htm',
+    params: [],
+    flags: [
+      {
+        id: 'c', label: 'Analysis Points', type: 'select', default: 1024,
+        options: [64, 128, 256, 512, 1024, 2048, 4096],
+        help: 'FFT analysis points. More = better frequency resolution, worse time detail. 1024 is good for clarinet. Flag format: -c1024'
+      },
+    ]
+  },
+
+  // Correct syntax: pvoc synth infile.ana outfile.wav
+  {
+    id: 'pvoc_synth',
+    program: 'pvoc',
+    mode: 'synth',
+    modeNum: null,
+    label: 'PVOC Synth',
+    category: 'pvoc',
+    description: 'Convert a .ana spectral file back to .wav audio. Use after BLUR or FOCUS nodes.',
+    inputExt: ['.ana'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecpvoc.htm',
+    params: [],
+    flags: [],
+  },
+
+  // PVOC SYNTH with -P flag for pitch shift
+  // Correct syntax: pvoc synth infile.ana outfile.wav -P<multiplier>
+  {
+    id: 'pvoc_pitch',
+    program: 'pvoc',
+    mode: 'synth',
+    modeNum: null,
+    label: 'PVOC Pitch Shift',
+    category: 'pvoc',
+    description: 'Spectral pitch-shift without changing duration. Input: .ana from PVOC Analyse.',
+    inputExt: ['.ana'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecpvoc.htm',
+    params: [
+      {
+        id: 'multiplier', label: 'Pitch Multiplier', type: 'number',
+        default: 1.0, min: 0.0625, max: 16, flagPrefix: '-P',
+        help: '0.5 = octave down, 2.0 = octave up, 1.5 = perfect fifth up, 0.75 = perfect fourth down.'
+      }
+    ],
+    flags: [],
+  },
+
+  // ══ BLUR — Spectral blurring (SEPARATE program) ═══════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cspecblur.htm
+  // All BLUR processes: input .ana → output .ana → chain to PVOC Synth
+
+  // Correct syntax: blur blur infile.ana outfile.ana N
+  {
+    id: 'blur_blur',
+    program: 'blur',
+    mode: 'blur',
+    modeNum: null,
+    label: 'Blur (Time Average)',
+    category: 'blur',
+    description: 'Time-average the spectrum across N windows. Spectral wash/halo. Input: .ana → Output: .ana → chain to PVOC Synth.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecblur.htm',
+    params: [
+      {
+        id: 'N', label: 'Blur Windows (odd)', type: 'number',
+        default: 11, min: 1, max: 201,
+        help: 'Must be ODD. 11 = subtle shimmer, 51 = soft halo, 201 = heavy smear.'
+      }
+    ],
+    flags: [],
+  },
+
+  // Correct syntax: blur avrg infile.ana outfile.ana N
+  {
+    id: 'blur_avrg',
+    program: 'blur',
+    mode: 'avrg',
+    modeNum: null,
+    label: 'Blur Average (Channels)',
+    category: 'blur',
+    description: 'Average spectral energy across N adjacent frequency channels. Input: .ana → Output: .ana',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecblur.htm',
+    params: [
+      {
+        id: 'N', label: 'Adjacent Channels (odd)', type: 'number',
+        default: 5, min: 1, max: 99,
+        help: 'Must be ODD. Cannot exceed half the analysis points used in PVOC Anal.'
+      }
+    ],
+    flags: [],
+  },
+
+  // Correct syntax: blur scatter infile.ana outfile.ana range
+  {
+    id: 'blur_scatter',
+    program: 'blur',
+    mode: 'scatter',
+    modeNum: null,
+    label: 'Blur Scatter',
+    category: 'blur',
+    description: 'Randomly scramble spectral windows within a range. Input: .ana → Output: .ana',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecblur.htm',
+    params: [
+      {
+        id: 'range', label: 'Scatter Range', type: 'number',
+        default: 20, min: 1, max: 500,
+        help: 'Small = slow wandering. Large = wild scrambling of the spectrum.'
+      }
+    ],
+    flags: [],
+  },
+
+  // ══ FOCUS — Spectral freeze (SEPARATE program) ═══════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cspecfoc.htm
+
+  // Correct syntax: focus freeze infile.ana outfile.ana time duration
+  {
+    id: 'focus_freeze',
+    program: 'focus',
+    mode: 'freeze',
+    modeNum: null,
+    label: 'Focus Freeze',
+    category: 'focus',
+    description: 'Freeze the spectrum at a moment — infinite sustaining pad. Input: .ana → Output: .ana → chain to PVOC Synth.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecfoc.htm',
+    params: [
+      {
+        id: 'time',     label: 'Freeze Time (s)', type: 'number',
+        default: 0.5, min: 0, max: 9999,
+        help: 'Moment to freeze. 0.2 = bright attack, 0.8 = body of tone.'
+      },
+      {
+        id: 'duration', label: 'Output Duration (s)', type: 'number',
+        default: 8.0, min: 0.1, max: 600,
+        help: 'Length of frozen output in seconds.'
+      }
+    ],
+    flags: [],
+  },
+
+  // ══ MODIFY ════════════════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgromody.htm
+
+  // MODIFY RADICAL 1 = audio reverse (NOT modify reverse — that doesn't exist)
+  // Correct syntax: modify radical 1 infile.wav outfile.wav
+  {
+    id: 'modify_radical_reverse',
+    program: 'modify',
+    mode: 'radical',
+    modeNum: 1,
+    label: 'Reverse (Audio)',
+    category: 'modify',
+    description: 'Reverse the entire soundfile (time-domain, not waveset). Mode 1 of MODIFY RADICAL.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    ambisonicNote: 'Safe for multichannel — all channels reversed simultaneously.',
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL',
+    params: [],
+    flags: [],
+  },
+
+  // MODIFY SPEED — correct syntax: modify speed 1 infile.wav outfile.wav ratio
+  // Mode 1 = change speed by constant ratio (pitch also changes)
+  {
+    id: 'modify_speed',
+    program: 'modify',
+    mode: 'speed',
+    modeNum: 1,
+    label: 'Speed Change',
+    category: 'modify',
+    description: 'Change speed AND pitch by a ratio. Mode 1. Works on .wav directly.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#SPEED',
+    params: [
+      {
+        id: 'ratio', label: 'Speed Ratio', type: 'number',
+        default: 0.5, min: 0.01, max: 32,
+        help: '0.5 = half speed (pitch drops), 2.0 = double speed (pitch rises). 0.125 = massive drone.'
+      }
+    ],
+    flags: [],
+  },
+
+  // MODIFY LOUDNESS — correct syntax: modify loudness infile.wav outfile.wav startlevel endlevel
+  {
+    id: 'modify_loudness',
+    program: 'modify',
+    mode: 'loudness',
+    modeNum: null,
+    label: 'Loudness / Fade',
+    category: 'modify',
+    description: 'Reshape the amplitude envelope linearly from startlevel to endlevel.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#LOUDNESS',
+    params: [
+      {
+        id: 'startlevel', label: 'Start Level (0–1)', type: 'number',
+        default: 0.0, min: 0, max: 1,
+        help: '0 = silence at start, 1 = full volume. Fade-in: 0 → 1.'
+      },
+      {
+        id: 'endlevel', label: 'End Level (0–1)', type: 'number',
+        default: 1.0, min: 0, max: 1,
+        help: '0 = silence at end, 1 = full volume. Fade-out: 1 → 0.'
+      }
+    ],
+    flags: [],
+  },
+
+  // MODIFY BRASSAGE 6 = full granular brassage
+  // Correct syntax: modify brassage 6 infile.wav outfile.wav velocity density grainsize pitchshift amp space bsplice esplice
+  {
+    id: 'modify_brassage',
+    program: 'modify',
+    mode: 'brassage',
+    modeNum: 6,
+    label: 'Brassage (Granular)',
+    category: 'grain',
+    description: 'Full granular reconstitution. Mode 6. velocity = speed of advance (inverse of timestretch), density = grain overlap.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE',
+    params: [
+      { id: 'velocity',   label: 'Velocity (inverse stretch)', type: 'number', default: 1.0,  min: 0,   max: 20,   help: 'Speed through source. 0.5 = stretch to 2×, 2.0 = compress to half. 0 = infinite stretch.' },
+      { id: 'density',    label: 'Density (grain overlap)',    type: 'number', default: 1.0,  min: 0.01, max: 2,   help: 'Grain overlap. <1 = gaps, 1 = normal, >1 = dense. 0.01 values get unpredictable.' },
+      { id: 'grainsize',  label: 'Grain Size (ms)',            type: 'number', default: 50,   min: 10,  max: 1000, help: 'Grain length in ms. 20–80ms = shimmer, 200–500ms = audible fragments.' },
+      { id: 'pitchshift', label: 'Pitch Shift (semitones)',    type: 'number', default: 0.0,  min: -24, max: 24,   help: 'Transposition in semitones (±). 0 = no pitch change.' },
+      { id: 'amp',        label: 'Amplitude (0–1)',            type: 'number', default: 1.0,  min: 0,   max: 1,    help: 'Grain loudness. 1.0 = unchanged.' },
+      { id: 'space',      label: 'Stereo Position (0–1)',      type: 'number', default: 0.5,  min: 0,   max: 1,    help: '0 = hard left, 0.5 = centre, 1 = hard right.' },
+      { id: 'bsplice',    label: 'Start Splice (ms)',          type: 'number', default: 5,    min: 1,   max: 100,  help: 'Fade-in of each grain in ms. Prevents clicks.' },
+      { id: 'esplice',    label: 'End Splice (ms)',            type: 'number', default: 5,    min: 1,   max: 100,  help: 'Fade-out of each grain in ms. Prevents clicks.' },
+    ],
+    flags: [],
+  },
+
+  // ══ DISTORT — Waveset ════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cdistort.htm
+  // All DISTORT processes work on MONO .wav files only.
+
+  // Correct syntax: distort average infile.wav outfile.wav cyclecnt
+  {
+    id: 'distort_average',
+    program: 'distort',
+    mode: 'average',
+    modeNum: null,
+    label: 'Distort Average',
+    category: 'distort',
+    description: 'Average waveshape over N pseudo-wavecycles. Aphex Twin-style glitch. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#AVERAGE',
+    params: [
+      {
+        id: 'cyclecnt', label: 'Wavecycle Count', type: 'number',
+        default: 8, min: 2, max: 100,
+        help: 'Wavecycles to average. Range >1. Values <10 retain original character, ~100 creates sample-hold effect.'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT REVERSE — waveset cycle-reversal (NOT a simple audio reverse)
+  // Correct syntax: distort reverse infile.wav outfile.wav cyclecnt
+  {
+    id: 'distort_reverse',
+    program: 'distort',
+    mode: 'reverse',
+    modeNum: null,
+    label: 'Distort Reverse (Wavesets)',
+    category: 'distort',
+    description: 'Cycle-reversal: wavesets reversed in groups. Creates granular distortion. MONO only. Note: this is waveset reversal, not full audio reverse.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#REVERSE',
+    params: [
+      {
+        id: 'cyclecnt', label: 'Wavecycles per Group', type: 'number',
+        default: 4, min: 1, max: 200,
+        help: 'Number of wavecycles per reversed group. Small = grainy, large = swathes of reversed sound.'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT REPEAT — timestretch by repeating wavecycles
+  // Correct syntax: distort repeat infile.wav outfile.wav cyclecnt
+  {
+    id: 'distort_repeat',
+    program: 'distort',
+    mode: 'repeat',
+    modeNum: null,
+    label: 'Distort Repeat',
+    category: 'distort',
+    description: 'Timestretch by repeating wavecycles — a glitchy, artefact-rich stretch. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#REPEAT',
+    params: [
+      {
+        id: 'cyclecnt', label: 'Repeat Count', type: 'number',
+        default: 4, min: 1, max: 100,
+        help: 'How many times each wavecycle is repeated. Higher = longer and more distorted.'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT SHUFFLE — shuffle wavecycle order
+  // Correct syntax: distort shuffle infile outfile domain-image [-ccyclecnt]
+  {
+    id: 'distort_shuffle',
+    program: 'distort',
+    mode: 'shuffle',
+    modeNum: null,
+    label: 'Distort Shuffle',
+    category: 'distort',
+    description: 'Shuffle the order of wavecycles within groups. Creates granular, scrambled texture. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#SHUFFLE',
+    params: [
+      { id: 'domainImage', label: 'Pattern', type: 'select', default: 'abcd-dcba', options: ['abcd-dcba', 'abcd-bacd', 'abcd-cdba', 'abcd-dacb', 'abc-cba', 'abcde-edcba', 'abcde-badce', 'abcd-abdc'], help: 'Domain-image pattern for shuffling wavecycles. Same length = no stretch, longer image = time-stretch.' },
+    ],
+    flags: [
+      { id: 'c', label: 'Cycles per Group', type: 'number', default: 4, min: 1, max: 200, help: 'Number of wavecycles each character represents. Larger = coarser shuffling.' },
+    ],
+  },
+
+  // ══ MIX — Combine ════════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgromixr.htm
+
+  // SUBMIX BALANCE — mix two files with a balance control
+  // Correct syntax: submix balance sndfile1 sndfile2 outfile [-kbalance]
+  {
+    id: 'submix_balance',
+    program: 'submix',
+    mode: 'balance',
+    modeNum: null,
+    label: 'Mix (2 files)',
+    category: 'mix',
+    description: 'Mix two soundfiles together. Balance controls relative level: 0 = all B, 1 = all A, 0.5 = equal.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    twoInputs: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromixr.htm',
+    params: [],
+    flags: [],
+  },
+
+  // ══ EXTEND — Time-stretch ═════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cextend.htm
+
+  // EXTEND DRUNK (Mode 1 only) — Drunken walk through source file
+  // Correct syntax: extend drunk 1 infile outfile outdur locus ambitus step clock [-ssplicelen] [-cclokrand] [-ooverlap] [-rseed]
+  {
+    id: 'extend_drunk',
+    program: 'extend',
+    mode: 'drunk',
+    modeNum: 1,
+    label: 'Extend Drunk (Mode 1)',
+    category: 'extend',
+    description: 'MODE 1 ONLY: Drunken walk through source. Splice segments end-to-end with random start times chosen by a drunken walk. outdur, locus, ambitus, step, clock may vary over time via breakpoint files.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://composersdesktop.com/docs/html/cgroextd.htm',
+    params: [
+      {
+        id: 'outdur', label: 'Output Duration', type: 'number',
+        default: 10, min: 0.1, max: 3600,
+        help: 'Total minimum duration of output (seconds). Breakpoint: LH col = outfile time, RH col = time in infile.'
+      },
+      {
+        id: 'locus', label: 'Locus', type: 'number',
+        default: 0, min: 0, max: 3600,
+        help: 'Center time in source for drunken walk (seconds). Constant = fixed position in infile. Breakpoint: LH col = outfile time, RH col = infile time.'
+      },
+      {
+        id: 'ambitus', label: 'Ambitus', type: 'number',
+        default: 1, min: 0.01, max: 3600,
+        help: 'Half-width of region to read segments from (seconds). Breakpoint: LH col = outfile time, RH col = half-width in seconds.'
+      },
+      {
+        id: 'step', label: 'Step', type: 'number',
+        default: 0.5, min: 0.002, max: 3600,
+        help: 'Max random step between segment reads (seconds, > 0.002). Auto-adjusted if larger than ambitus. Breakpoint: LH col = outfile time, RH col = step in seconds.'
+      },
+      {
+        id: 'clock', label: 'Clock', type: 'number',
+        default: 0.1, min: 0.032, max: 3600,
+        help: 'Time between segment reads = segment duration (seconds, > splicelen * 2). Breakpoint: LH col = outfile time, RH col = clock in seconds.'
+      },
+    ],
+    flags: [
+      { id: 's', label: 'Splice Length', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice slope length (ms). Default: 15. Clock must be > splicelen * 2.' },
+      { id: 'c', label: 'Clock Randomisation', type: 'number', default: 0, min: 0, max: 1, help: 'Randomisation of clock ticks (0-1). Default: 0.' },
+      { id: 'o', label: 'Overlap', type: 'number', default: 0, min: 0, max: 0.99, help: 'Mutual overlap of segments in output (0-0.99). Default: 0.' },
+      { id: 'r', label: 'Seed', type: 'number', default: 0, min: 0, max: 999999, help: 'Any non-zero value gives reproducible output. Default: 0 (random).' },
+    ],
+  },
+
+]
+
+export function getCommandsByCategory(categoryId) {
+  return CDP_COMMANDS.filter(c => c.category === categoryId)
+}
+
+export function getCommandById(id) {
+  return CDP_COMMANDS.find(c => c.id === id)
+}
+
+export function getMultichannelCommands() {
+  return CDP_COMMANDS.filter(c => c.multichannel === true)
+}
+
+export const CHANNEL_FORMATS = {
+  'mono':   { label: 'Mono',        channels: 1,  colour: '#64748b' },
+  'stereo': { label: 'Stereo',      channels: 2,  colour: '#3b82f6' },
+  '4ch':    { label: '4ch (FOA)',   channels: 4,  colour: '#8b5cf6', ambisonic: true, order: 1 },
+  '9ch':    { label: '9ch (HOA2)', channels: 9,  colour: '#ec4899', ambisonic: true, order: 2 },
+  '16ch':   { label: '16ch (HOA3)',channels: 16, colour: '#f59e0b', ambisonic: true, order: 3 },
+}
