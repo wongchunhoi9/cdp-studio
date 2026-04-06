@@ -469,6 +469,54 @@ export const CDP_COMMANDS = [
     ],
   },
 
+  // BOUNCE — Accelerating repeats, decaying in level
+  // Correct syntax: bounce bounce inf outf count startgap shorten endlevel ewarp [-smin] [-c | -e]
+  {
+    id: 'extend_bounce',
+    program: 'bounce',
+    mode: 'bounce',
+    modeNum: null,
+    label: 'Bounce',
+    category: 'extend',
+    description: 'Accelerating repeats with decaying level — like a bouncing ball. Each repeat gets closer together and quieter.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cr8new.htm#BOUNCE',
+    params: [
+      {
+        id: 'count', label: 'Bounce Count', type: 'number',
+        default: 8, min: 1, max: 100,
+        help: 'Number of repetitions. More = longer bounce sequence.'
+      },
+      {
+        id: 'startgap', label: 'Start Gap (s)', type: 'number',
+        default: 1.0, min: 0.04, max: 10,
+        help: 'Initial gap between source and first repeat (seconds). Smaller = faster bounce feel.'
+      },
+      {
+        id: 'shorten', label: 'Shorten Multiplier', type: 'number',
+        default: 0.8, min: 0.1, max: 1,
+        help: 'Each gap is this fraction of the previous. 0.5 = halves each time (fast accel), 1.0 = no acceleration.'
+      },
+      {
+        id: 'endlevel', label: 'End Level', type: 'number',
+        default: 0.1, min: 0, max: 1,
+        help: 'Final volume as fraction of source. 0 = silence at end, 1 = no decay.'
+      },
+      {
+        id: 'ewarp', label: 'Decay Warp', type: 'number',
+        default: 1.0, min: 0.1, max: 100,
+        help: 'Shapes the decay curve. >1 = fast decay then tail off, <1 = slow decay then sudden drop.'
+      },
+    ],
+    flags: [
+      { id: 's', label: 'Min Element Length', type: 'number', default: 0, min: 0, max: 1, help: 'Minimum length of bounced elements (0-1). 0 = no shrinkage. Elements shrink with the acceleration.' },
+      { id: 'c', label: 'Cut Overlap', type: 'number', default: 0, min: 0, max: 1, help: 'If repeats overlap, cut to avoid clipping. 1 = enable. WARNING: do not use with -e flag.' },
+      { id: 'e', label: 'Shrink From Start', type: 'number', default: 0, min: 0, max: 1, help: 'Shrink elements by trimming start instead of end. 1 = enable. WARNING: do not use with -c flag.' },
+    ],
+  },
+
 ]
 
 export function getCommandsByCategory(categoryId) {

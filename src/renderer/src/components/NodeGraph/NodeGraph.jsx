@@ -193,12 +193,11 @@ function ProcessNode({ data, id, selected }) {
         </label>
         {param.type === 'number' && (
           <input type="number"
+            className="nodrag"
             min={param.min} max={param.max}
             step={param.step || (param.max - param.min) / 200}
             value={data.paramValues?.[param.id] ?? param.default}
             onChange={e => updateParam(param.id, parseFloat(e.target.value))}
-            onPointerDown={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
             style={{
               width: 64, background: '#1e293b', border: `1px solid ${colour}33`,
               borderRadius: 4, padding: '1px 4px', color: colour,
@@ -215,17 +214,16 @@ function ProcessNode({ data, id, selected }) {
       </div>
       {param.type === 'number' && (
         <input type="range"
+          className="nodrag"
           min={param.min} max={param.max}
           step={param.step || (param.max - param.min) / 200}
           value={data.paramValues?.[param.id] ?? param.default}
           onChange={e => updateParam(param.id, parseFloat(e.target.value))}
-          onPointerDown={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
           style={{ '--accent-color': colour }}
         />
       )}
       {param.type === 'select' && (
-        <select value={data.paramValues?.[param.id] ?? param.default}
+        <select className="nodrag" value={data.paramValues?.[param.id] ?? param.default}
           onChange={e => {
             const val = param.options[0] && typeof param.options[0] === 'number'
               ? parseInt(e.target.value)
