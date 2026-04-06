@@ -9,6 +9,7 @@ import WaveSurfer from 'wavesurfer.js'
 import { CDP_COMMANDS, CDP_CATEGORIES, getCommandById } from '../../lib/cdpCommands.js'
 import { buildArgs, buildOutputPath } from '../../lib/cdpRunner.js'
 import { v4 as uuidv4 } from 'uuid'
+import BreakpointEditor from './BreakpointEditor'
 
 // ── Format badge ───────────────────────────────────────────────────
 function FormatBadge({ ext, side = 'in' }) {
@@ -182,21 +183,147 @@ function ProcessNode({ data, id, selected }) {
     data.onUpdate(id, { paramValues: { ...data.paramValues, [paramId]: value } })
   }
 
-  const renderParam = (param) => (
+  // ── Soft validation: compute per-param error messages ─────────────
+  const [validationErrors, setValidationErrors] = useState({})
+  const [inputDuration, setInputDuration] = useState(0)
+
+  useEffect(() => {
+    if (!data.inputPath || !command) {
+      setValidationErrors({})
+      return
+    }
+
+    const validate = async () => {
+      const errors = {}
+      const inputInfo = await window.cdpStudio.getAudioInfo(data.inputPath).catch(() => null)
+      const dur = inputInfo?.duration || 0
+      setInputDuration(dur)
+      const paramValues = data.paramValues || {}
+
+      const getDynamicLimits = (p) => {
+        if ((command.id === 'extend_drunk' || command.id === 'extend_drunk_2') && dur > 0) {
+          if (p.id === 'locus') return { min: 0, max: dur }
+          if (p.id === 'ambitus') return { min: 0, max: dur / 2 }
+          if (p.id === 'clock') return { min: 0.032, max: dur }
+        }
+        return { min: p.min, max: p.max }
+      }
+
+      // Clock must be > 0.03
+      const clock = paramValues.clock ?? 0.1
+      if (clock <= 0.03) {
+        errors.clock = `must be > 0.03s`
+      }
+
+      // Check breakpoint curve values against param min/max
+      const bpCurves = data.breakpointCurves || {}
+      const allParams = [...(command.params || []), ...(command.flags || [])]
+      for (const param of allParams) {
+        const limits = getDynamicLimits(param)
+        const curve = bpCurves[param.id]
+        if (curve && Array.isArray(curve)) {
+          for (const pt of curve) {
+            const actualVal = limits.min + (pt.value / 100) * (limits.max - limits.min)
+            if (actualVal < limits.min) {
+              errors[param.id] = `curve has value ${actualVal.toFixed(2)} < min ${limits.min}`
+              break
+            }
+            if (actualVal > limits.max) {
+              errors[param.id] = `curve has value ${actualVal.toFixed(2)} > max ${limits.max}`
+              break
+            }
+          }
+        }
+      }
+
+      setValidationErrors(errors)
+    }
+
+    validate()
+  }, [data.inputPath, data.paramValues, data.breakpointCurves, command])
+
+
+  const renderParam = (param) => {
+    const isBreakpoint = data.breakpointCurves?.[param.id] != null
+    const isBreakpointParam = param.supportsBreakpoint && param.type === 'number'
+    const currentValue = data.paramValues?.[param.id] ?? param.default
+
+    const getDynamicLimits = (p) => {
+      if ((command.id === 'extend_drunk' || command.id === 'extend_drunk_2') && inputDuration > 0) {
+        if (p.id === 'locus') return { min: 0, max: inputDuration }
+        if (p.id === 'ambitus') return { min: 0, max: inputDuration / 2 }
+        if (p.id === 'clock') return { min: 0.032, max: inputDuration }
+      }
+      return { min: p.min, max: p.max }
+    }
+    const limits = getDynamicLimits(param)
+
+    const toggleBreakpoint = () => {
+      const current = data.breakpointCurves?.[param.id]
+      if (current) {
+        const curves = { ...data.breakpointCurves }
+        delete curves[param.id]
+        const paramValues = { ...data.paramValues }
+        delete paramValues[param.id]
+        data.onUpdate(id, { breakpointCurves: curves, paramValues })
+      } else {
+        const outdur = data.paramValues?.outdur ?? 10
+        const defaultVal = data.paramValues?.[param.id] ?? param.default
+        const curves = { ...(data.breakpointCurves || {}), [param.id]: [
+          { time: 0, value: defaultVal },
+          { time: outdur, value: defaultVal },
+        ]}
+        data.onUpdate(id, { breakpointCurves: curves })
+      }
+    }
+
+    const updateBreakpoints = (newPoints, currentActualValue) => {
+      const curves = { ...(data.breakpointCurves || {}), [param.id]: newPoints }
+      data.onUpdate(id, { breakpointCurves: curves })
+    }
+
+    return (
     <div key={param.id} style={{ marginBottom: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <label style={{ fontSize: '0.67em', color: '#94a3b8' }}>
-          {param.label}
-          {param.id in (command.flags?.reduce((a, f) => ({ ...a, [f.id]: true }), {}) || {})
-            ? <span style={{ color: '#334155', marginLeft: 3 }}>(-{param.id})</span>
-            : null}
-        </label>
-        {param.type === 'number' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label style={{ fontSize: '0.67em', color: '#94a3b8' }}>
+            {param.label}
+            {param.id in (command.flags?.reduce((a, f) => ({ ...a, [f.id]: true }), {}) || {})
+              ? <span style={{ color: '#334155', marginLeft: 3 }}>(-{param.id})</span>
+              : null}
+          </label>
+          {isBreakpointParam && (
+            <button
+              onClick={toggleBreakpoint}
+              className="nodrag"
+              title={isBreakpoint ? 'Disable breakpoint curve' : 'Enable breakpoint curve'}
+              style={{
+                fontSize: '0.58em',
+                background: isBreakpoint ? colour + '44' : '#1e293b',
+                border: `1px solid ${isBreakpoint ? colour : '#334155'}`,
+                color: isBreakpoint ? colour : '#475569',
+                borderRadius: 4,
+                padding: '1px 5px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}>
+              BP
+            </button>
+          )}
+          {validationErrors[param.id] && (
+            <span title={validationErrors[param.id]} style={{
+              fontSize: '0.58em', color: '#f59e0b', marginLeft: 4, cursor: 'help',
+            }}>
+              ⚠ {validationErrors[param.id]}
+            </span>
+          )}
+        </div>
+        {param.type === 'number' && !isBreakpoint && (
           <input type="number"
             className="nodrag"
-            min={param.min} max={param.max}
-            step={param.step || (param.max - param.min) / 200}
-            value={data.paramValues?.[param.id] ?? param.default}
+            min={limits.min} max={limits.max}
+            step={param.step || (limits.max - limits.min) / 200}
+            value={currentValue}
             onChange={e => updateParam(param.id, parseFloat(e.target.value))}
             style={{
               width: 64, background: '#1e293b', border: `1px solid ${colour}33`,
@@ -206,24 +333,43 @@ function ProcessNode({ data, id, selected }) {
             }}
           />
         )}
-        {param.type !== 'number' && (
+        {param.type !== 'number' && !isBreakpoint && (
           <span style={{ fontSize: '0.67em', color: colour, fontFamily: 'monospace' }}>
-            {data.paramValues?.[param.id] ?? param.default}
+            {currentValue}
+          </span>
+        )}
+        {isBreakpoint && (
+          <span style={{ fontSize: '0.58em', color: colour, background: colour + '22', borderRadius: 4, padding: '1px 5px' }}>
+            〰 curve
           </span>
         )}
       </div>
-      {param.type === 'number' && (
+      {param.type === 'number' && !isBreakpoint && (
         <input type="range"
           className="nodrag"
-          min={param.min} max={param.max}
-          step={param.step || (param.max - param.min) / 200}
-          value={data.paramValues?.[param.id] ?? param.default}
+          min={limits.min} max={limits.max}
+          step={param.step || (limits.max - limits.min) / 200}
+          value={currentValue}
           onChange={e => updateParam(param.id, parseFloat(e.target.value))}
           style={{ '--accent-color': colour }}
         />
       )}
-      {param.type === 'select' && (
-        <select className="nodrag" value={data.paramValues?.[param.id] ?? param.default}
+      {isBreakpoint && (
+        <BreakpointEditor
+          points={data.breakpointCurves[param.id]}
+          onChange={updateBreakpoints}
+          timeMax={data.paramValues?.outdur ?? 10}
+          valueMin={0}
+          valueMax={100}
+          paramMin={limits.min}
+          paramMax={limits.max}
+          colour={colour}
+          width={200}
+          height={72}
+        />
+      )}
+      {param.type === 'select' && !isBreakpoint && (
+        <select className="nodrag" value={currentValue}
           onChange={e => {
             const val = param.options[0] && typeof param.options[0] === 'number'
               ? parseInt(e.target.value)
@@ -235,7 +381,7 @@ function ProcessNode({ data, id, selected }) {
         </select>
       )}
     </div>
-  )
+  )}
 
   const statusColour = data.status === 'done' ? '#22c55e' : data.status === 'error' ? '#ef4444' : data.status === 'running' ? colour : '#334155'
 
@@ -316,6 +462,12 @@ function ProcessNode({ data, id, selected }) {
 
 // ── Output Node — runs the whole chain ────────────────────────────
 function OutputNode({ data, id }) {
+  const fmt = (s) => {
+    if (!s || s === 0) return '—'
+    const m = Math.floor(s / 60), sec = (s % 60).toFixed(1).padStart(4, '0')
+    return `${m}:${sec}`
+  }
+
   return (
     <div style={nodeStyle('#f59e0b')}>
       <Handle type="target" position={Position.Left} style={handleStyle('#f59e0b')} />
@@ -327,9 +479,18 @@ function OutputNode({ data, id }) {
       </div>
       <div style={{ padding: '8px 10px' }}>
         {data.filePath ? (
-          <div style={{ fontSize: '0.7em', color: '#94a3b8', wordBreak: 'break-all', marginBottom: 8 }}>
-            ✓ {data.filePath.split('/').pop()}
-          </div>
+          <>
+            <div style={{ fontSize: '0.7em', color: '#94a3b8', wordBreak: 'break-all', marginBottom: 3 }}>
+              ✓ {data.filePath.split('/').pop()}
+            </div>
+            {data.audioInfo && (
+              <div style={{ fontSize: '0.65em', color: '#fbbf24', marginBottom: 6 }}>
+                {data.audioInfo.channels}ch · {(data.audioInfo.sampleRate / 1000).toFixed(1)}kHz · {fmt(data.audioInfo.duration)}
+              </div>
+            )}
+            {/* Quick preview waveform */}
+            <MiniWaveform filePath={data.filePath} />
+          </>
         ) : (
           <div style={{ fontSize: '0.7em', color: '#475569', marginBottom: 8 }}>
             Connect process nodes, then click Render Chain ↓
@@ -368,14 +529,21 @@ export default function NodeGraph({ onAIHelp }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([
     {
       id: 'source-1', type: 'source', position: { x: 40, y: 180 },
-      data: { filePath: null, audioInfo: null, label: '', onUpdate: updateNodeData },
+      data: { filePath: '/Users/chunhoiwong/Desktop/cdp-studio/Clarinet_M160_testSample.wav', audioInfo: null, label: 'Clarinet_M160_testSample.wav', onUpdate: updateNodeData },
     },
     {
-      id: 'output-1', type: 'output', position: { x: 700, y: 180 },
+      id: 'process-1', type: 'process', position: { x: 350, y: 180 },
+      data: { commandId: 'extend_drunk', paramValues: { outdur: 10, locus: 1, ambitus: 0.5, step: 0.5, clock: 0.1 }, breakpointCurves: null, inputPath: '/Users/chunhoiwong/Desktop/cdp-studio/Clarinet_M160_testSample.wav', onUpdate: updateNodeData },
+    },
+    {
+      id: 'output-1', type: 'output', position: { x: 700, y: 180 }, deletable: false,
       data: { filePath: null, chainRunning: false, onRenderChain: null },
     },
   ])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState([
+    { id: 'e1', source: 'source-1', target: 'process-1', animated: false, style: { stroke: '#6366f1' } },
+    { id: 'e2', source: 'process-1', target: 'output-1', animated: false, style: { stroke: '#6366f1' } },
+  ])
   const [showPicker, setShowPicker] = useState(false)
   const [selectedCat, setSelectedCat] = useState('pvoc')
   const nodesRef = useRef(nodes)
@@ -390,6 +558,20 @@ export default function NodeGraph({ onAIHelp }) {
       n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n
     ))
   }
+
+  // Auto-load audio file on startup for default patch
+  useEffect(() => {
+    const sourceNode = nodes.find(n => n.id === 'source-1')
+    if (sourceNode?.data?.filePath && !sourceNode.data.audioInfo) {
+      window.cdpStudio.getAudioInfo(sourceNode.data.filePath)
+        .then(info => {
+          setNodes(nds => nds.map(n =>
+            n.id === 'source-1' ? { ...n, data: { ...n.data, audioInfo: info } } : n
+          ))
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   // ── Chain execution ──────────────────────────────────────────────
   // Traverses edges backwards from output to find all nodes in the graph,
@@ -472,41 +654,37 @@ export default function NodeGraph({ onAIHelp }) {
         }
       }
 
-      const paramValues = processNode.data.paramValues || {}
+      const paramValues = { ...(processNode.data.paramValues || {}) }
 
-      // Validate extend_drunk 1 constraints
-      if (command.id === 'extend_drunk') {
-        const inputInfo = await window.cdpStudio.getAudioInfo(inputPath).catch(() => null)
-        if (inputInfo) {
-          const dur = inputInfo.duration
-          const locus = paramValues.locus ?? 0
-          const ambitus = paramValues.ambitus ?? 1
-          const clock = paramValues.clock ?? 0.1
+      // Write breakpoint files and replace numeric values with file paths
+      const breakpointCurves = processNode.data.breakpointCurves || {}
+      for (const [paramId, points] of Object.entries(breakpointCurves)) {
+        if (points && Array.isArray(points) && points.length >= 2) {
+          const param = command.params?.find(p => p.id === paramId)
+          const paramMin = param?.min ?? 0
+          const paramMax = param?.max ?? 100
+          const actualPoints = points.map(p => ({
+            time: p.time,
+            value: paramMin + (p.value / 100) * (paramMax - paramMin),
+          }))
+          const filename = `${processNode.id}_${paramId}_${Date.now()}.brk`
+          try {
+            const filePath = await window.cdpStudio.writeBreakpointFile(actualPoints, filename)
+            paramValues[paramId] = filePath
+          } catch (e) {
+            console.error('Failed to write breakpoint file for', paramId, e)
+          }
+        }
+      }
 
-          if (locus > dur) {
-            updateNodeData(processNode.id, { status: 'error' })
-            updateNodeData(outputNodeId, { chainRunning: false })
-            alert(`Extend Drunk: Locus (${locus}s) exceeds input file duration (${dur.toFixed(2)}s). Set locus to a time within the file.`)
-            return
-          }
-          if (locus - ambitus < 0) {
-            updateNodeData(processNode.id, { status: 'error' })
-            updateNodeData(outputNodeId, { chainRunning: false })
-            alert(`Extend Drunk: Ambitus (${ambitus}s) extends before the start of the file. Locus (${locus}s) − ambitus must be ≥ 0. Reduce ambitus to ≤ ${locus.toFixed(2)}s.`)
-            return
-          }
-          if (locus + ambitus > dur) {
-            updateNodeData(processNode.id, { status: 'error' })
-            updateNodeData(outputNodeId, { chainRunning: false })
-            alert(`Extend Drunk: Ambitus (${ambitus}s) extends past the end of the file. Locus (${locus}s) + ambitus must be ≤ file duration (${dur.toFixed(2)}s). Reduce ambitus to ≤ ${(dur - locus).toFixed(2)}s.`)
-            return
-          }
-          if (clock <= 0.03) {
-            updateNodeData(processNode.id, { status: 'error' })
-            updateNodeData(outputNodeId, { chainRunning: false })
-            alert(`Extend Drunk: Clock (${clock}s) must be > 0.03s (twice the default splice length of 15ms).`)
-            return
-          }
+      // Validate extend_drunk constraints (both modes)
+      if (command.id === 'extend_drunk' || command.id === 'extend_drunk_2') {
+        const clock = paramValues.clock ?? 0.1
+        if (clock <= 0.03) {
+          updateNodeData(processNode.id, { status: 'error' })
+          updateNodeData(outputNodeId, { chainRunning: false })
+          alert(`Extend Drunk: Clock (${clock}s) must be > 0.03s (twice the default splice length of 15ms).`)
+          return
         }
       }
 
@@ -553,7 +731,8 @@ export default function NodeGraph({ onAIHelp }) {
     // Update output node with final result
     const lastProcess = processChain[processChain.length - 1]
     const finalPath = nodeOutputs[lastProcess?.id]
-    updateNodeData(outputNodeId, { chainRunning: false, filePath: finalPath })
+    const audioInfo = await window.cdpStudio.getAudioInfo(finalPath).catch(() => null)
+    updateNodeData(outputNodeId, { chainRunning: false, filePath: finalPath, audioInfo })
   }, [])
 
   // Wire renderChain into output node data after it's defined
@@ -629,6 +808,15 @@ export default function NodeGraph({ onAIHelp }) {
     }])
   }
 
+  const addOutputNode = () => {
+    const id = `output-${uuidv4()}`
+    setNodes(nds => [...nds, {
+      id, type: 'output', deletable: false,
+      position: { x: 700, y: 180 + nds.filter(n => n.type === 'output').length * 200 },
+      data: { filePath: null, audioInfo: null, chainRunning: false, onRenderChain: renderChain },
+    }])
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#090f1a' }}>
       <style>{`
@@ -667,7 +855,17 @@ export default function NodeGraph({ onAIHelp }) {
       `}</style>
       <ReactFlow
         nodes={nodes} edges={edges}
-        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        onNodesChange={(changes) => {
+          const safe = changes.filter(c => {
+            if (c.type === 'remove') {
+              const node = nodes.find(n => n.id === c.id)
+              if (node?.type === 'output') return false
+            }
+            return true
+          })
+          onNodesChange(safe)
+        }}
+        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgeClick={(event, edge) => console.log('Edge selected:', edge.id, 'source:', edge.source, 'target:', edge.target)}
         nodeTypes={nodeTypes}
@@ -701,6 +899,10 @@ export default function NodeGraph({ onAIHelp }) {
             <button onClick={addSourceNode}
               style={{ background: '#1e293b', border: '1px solid #334155', color: '#22c55e', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Add Source
+            </button>
+            <button onClick={addOutputNode}
+              style={{ background: '#1e293b', border: '1px solid #334155', color: '#f59e0b', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              + Add Output
             </button>
           </div>
         </Panel>

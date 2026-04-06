@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('cdpStudio', {
   showInFinder: (path) => ipcRenderer.invoke('shell:showInFinder', path),
   getClipDir: () => ipcRenderer.invoke('app:getClipDir'),
 
+  // ── Breakpoint files ──────────────────────────────────────────────
+  writeBreakpointFile: (points, filename) =>
+    ipcRenderer.invoke('breakpoint:write', { points, filename }),
+
   // ── Terminal log listener ─────────────────────────────────────────
   // Renderer subscribes to live CDP command output
   onTerminalEntry: (callback) => {

@@ -258,6 +258,15 @@ ipcMain.handle('clips:delete', async (_, id) => {
   return true
 })
 
+// ── Breakpoint files: write a .brk file ─────────────────────────────
+ipcMain.handle('breakpoint:write', async (_, { points, filename }) => {
+  const clipDir = getClipDir()
+  const filePath = join(clipDir, filename)
+  const lines = points.map(p => `${p.time.toFixed(6)} ${p.value.toFixed(6)}`).join('\n')
+  writeFileSync(filePath, lines + '\n')
+  return filePath
+})
+
 // ── Session: save ───────────────────────────────────────────────────
 ipcMain.handle('session:save', async (_, { name, data }) => {
   const result = await dialog.showSaveDialog(mainWindow, {

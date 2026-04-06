@@ -438,26 +438,31 @@ export const CDP_COMMANDS = [
       {
         id: 'outdur', label: 'Output Duration', type: 'number',
         default: 10, min: 0.1, max: 3600,
+        supportsBreakpoint: true,
         help: 'Total minimum duration of output (seconds). Breakpoint: LH col = outfile time, RH col = time in infile.'
       },
       {
         id: 'locus', label: 'Locus', type: 'number',
-        default: 0, min: 0, max: 3600,
+        default: 1, min: 0, max: 3600,
+        supportsBreakpoint: true,
         help: 'Center time in source for drunken walk (seconds). Constant = fixed position in infile. Breakpoint: LH col = outfile time, RH col = infile time.'
       },
       {
         id: 'ambitus', label: 'Ambitus', type: 'number',
-        default: 1, min: 0.01, max: 3600,
+        default: 0.5, min: 0.01, max: 3600,
+        supportsBreakpoint: true,
         help: 'Half-width of region to read segments from (seconds). Breakpoint: LH col = outfile time, RH col = half-width in seconds.'
       },
       {
         id: 'step', label: 'Step', type: 'number',
         default: 0.5, min: 0.002, max: 3600,
+        supportsBreakpoint: true,
         help: 'Max random step between segment reads (seconds, > 0.002). Auto-adjusted if larger than ambitus. Breakpoint: LH col = outfile time, RH col = step in seconds.'
       },
       {
         id: 'clock', label: 'Clock', type: 'number',
         default: 0.1, min: 0.032, max: 3600,
+        supportsBreakpoint: true,
         help: 'Time between segment reads = segment duration (seconds, > splicelen * 2). Breakpoint: LH col = outfile time, RH col = clock in seconds.'
       },
     ],
@@ -466,6 +471,72 @@ export const CDP_COMMANDS = [
       { id: 'c', label: 'Clock Randomisation', type: 'number', default: 0, min: 0, max: 1, help: 'Randomisation of clock ticks (0-1). Default: 0.' },
       { id: 'o', label: 'Overlap', type: 'number', default: 0, min: 0, max: 0.99, help: 'Mutual overlap of segments in output (0-0.99). Default: 0.' },
       { id: 'r', label: 'Seed', type: 'number', default: 0, min: 0, max: 999999, help: 'Any non-zero value gives reproducible output. Default: 0 (random).' },
+    ],
+  },
+
+  // EXTEND DRUNK (Mode 2) — Drunken walk with sober holds
+  // Correct syntax: extend drunk 2 infile outfile outdur locus ambitus step clock mindrnk maxdrnk [-ssplicelen] [-cclokrand] [-ooverlap] [-rseed] [-llosober] [-hhisober]
+  {
+    id: 'extend_drunk_2',
+    program: 'extend',
+    mode: 'drunk',
+    modeNum: 2,
+    label: 'Extend Drunk (Mode 2)',
+    category: 'extend',
+    description: 'Mode 2: Drunken walk with sober holds. The file plays straight at random intervals between drunk segments, creating alternating textured and clear passages.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm',
+    params: [
+      {
+        id: 'outdur', label: 'Output Duration', type: 'number',
+        default: 10, min: 0.1, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Total minimum duration of output (seconds).'
+      },
+      {
+        id: 'locus', label: 'Locus', type: 'number',
+        default: 1, min: 0, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Center time in source for drunken walk (seconds). Breakpoint: LH col = outfile time, RH col = infile time.'
+      },
+      {
+        id: 'ambitus', label: 'Ambitus', type: 'number',
+        default: 0.5, min: 0.01, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Half-width of region to read segments from (seconds). The full ambit = 2 × ambitus, centered on locus.'
+      },
+      {
+        id: 'step', label: 'Step', type: 'number',
+        default: 0.5, min: 0.002, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Max random step between segment reads (seconds, > 0.002). Auto-adjusted if larger than ambitus.'
+      },
+      {
+        id: 'clock', label: 'Clock', type: 'number',
+        default: 0.1, min: 0.032, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Time between segment reads = segment duration (seconds, > splicelen × 2). Must be > 0.03s.'
+      },
+      {
+        id: 'mindrnk', label: 'Min Sober Ticks', type: 'number',
+        default: 10, min: 1, max: 32767,
+        help: 'Minimum number of clock ticks between sober plays (1–32767). Lower = more frequent sober sections.'
+      },
+      {
+        id: 'maxdrnk', label: 'Max Sober Ticks', type: 'number',
+        default: 30, min: 1, max: 32767,
+        help: 'Maximum number of clock ticks between sober plays (1–32767). Higher = longer gaps between sober sections.'
+      },
+    ],
+    flags: [
+      { id: 's', label: 'Splice Length', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice slope length (ms). Default: 15. Clock must be > splicelen × 2.' },
+      { id: 'c', label: 'Clock Randomisation', type: 'number', default: 0, min: 0, max: 1, help: 'Randomisation of clock ticks (0–1). Default: 0.' },
+      { id: 'o', label: 'Overlap', type: 'number', default: 0, min: 0, max: 0.99, help: 'Mutual overlap of segments in output (0–0.99). Default: 0.' },
+      { id: 'r', label: 'Seed', type: 'number', default: 0, min: 0, max: 999999, help: 'Any non-zero value gives reproducible output. Default: 0 (random).' },
+      { id: 'l', label: 'Min Sober Duration', type: 'number', default: 0, min: 0, max: 3600, help: 'Minimum duration of sober plays (seconds). 0 = use CDP default. If ≥ infile duration, all sober plays go to end.' },
+      { id: 'h', label: 'Max Sober Duration', type: 'number', default: 0, min: 0, max: 3600, help: 'Maximum duration of sober plays (seconds). 0 = use CDP default.' },
     ],
   },
 
