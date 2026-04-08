@@ -1,0 +1,10 @@
+{
+  "skills": [
+    {
+      "name": "cdp-command",
+      "trigger": "/cdp",
+      "path": "./skills/cdp-command.md",
+      "description": "Implement, fix, or verify CDP commands using the 6-stage workflow"
+    }
+  ]
+}
