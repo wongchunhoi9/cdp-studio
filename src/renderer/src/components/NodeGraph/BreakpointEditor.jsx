@@ -70,8 +70,10 @@ export default function BreakpointEditor({
 
   const handlePointerMove = useCallback((e) => {
     const rect = svgRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = (rect.width / width) || 1
+    const scaleY = (rect.height / height) || 1
+    const x = (e.clientX - rect.left) / scaleX
+    const y = (e.clientY - rect.top) / scaleY
 
     const time = Math.round(fromX(x) * 100) / 100
     const pctValue = Math.max(0, Math.min(100, fromY(y)))
@@ -100,8 +102,10 @@ export default function BreakpointEditor({
   const handleClick = useCallback((e) => {
     if (dragging !== null) return
     const rect = svgRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = (rect.width / width) || 1
+    const scaleY = (rect.height / height) || 1
+    const x = (e.clientX - rect.left) / scaleX
+    const y = (e.clientY - rect.top) / scaleY
 
     const nearest = findNearestPoint(x, y)
     if (nearest >= 0) return
@@ -117,8 +121,10 @@ export default function BreakpointEditor({
   const handleDoubleClick = useCallback((e) => {
     e.stopPropagation()
     const rect = svgRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = (rect.width / width) || 1
+    const scaleY = (rect.height / height) || 1
+    const x = (e.clientX - rect.left) / scaleX
+    const y = (e.clientY - rect.top) / scaleY
 
     const nearest = findNearestPoint(x, y)
     if (nearest >= 0 && points.length > 2) {
@@ -225,7 +231,7 @@ export default function BreakpointEditor({
         )}
 
         {hovered && (
-          <g>
+          <g style={{ pointerEvents: 'none' }}>
             <rect
               x={toX(points[hovered.index]?.time ?? 0) - 30}
               y={Math.max(PADDING.top, toY(hovered.pct) - 18)}

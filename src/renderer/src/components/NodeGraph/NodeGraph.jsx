@@ -8,8 +8,10 @@ import '@xyflow/react/dist/style.css'
 import WaveSurfer from 'wavesurfer.js'
 import { CDP_COMMANDS, CDP_CATEGORIES, getCommandById } from '../../lib/cdpCommands.js'
 import { buildArgs, buildOutputPath } from '../../lib/cdpRunner.js'
+import { resolveParamLimits, resolveBreakpointTimeDomain, validateParamValue } from '../../lib/paramResolver.js'
 import { v4 as uuidv4 } from 'uuid'
 import BreakpointEditor from './BreakpointEditor'
+import TextEditor, { parseBreakpointText, pointsToBreakpointText, pointsToPercentage, percentageToPoints } from './TextEditor'
 
 // ── Format badge ───────────────────────────────────────────────────
 function FormatBadge({ ext, side = 'in' }) {
@@ -180,7 +182,24 @@ function ProcessNode({ data, id, selected }) {
   const colour = cat?.colour || '#3b82f6'
 
   const updateParam = (paramId, value) => {
-    data.onUpdate(id, { paramValues: { ...data.paramValues, [paramId]: value } })
+    const updates = { paramValues: { ...data.paramValues, [paramId]: value } }
+    
+    if (paramId === 'outdur' && data.breakpointCurves) {
+      const oldOutdur = data.paramValues?.outdur ?? 10
+      const newOutdur = value
+      if (oldOutdur > 0 && newOutdur > 0) {
+        const scale = newOutdur / oldOutdur
+        const newCurves = {}
+        for (const [key, curve] of Object.entries(data.breakpointCurves)) {
+          if (Array.isArray(curve)) {
+            newCurves[key] = curve.map(pt => ({ ...pt, time: pt.time * scale }))
+          }
+        }
+        updates.breakpointCurves = newCurves
+      }
+    }
+
+    data.onUpdate(id, updates)
   }
 
   // ── Soft validation: compute per-param error messages ─────────────
@@ -199,27 +218,26 @@ function ProcessNode({ data, id, selected }) {
       const dur = inputInfo?.duration || 0
       setInputDuration(dur)
       const paramValues = data.paramValues || {}
+      const outdur = paramValues.outdur ?? 10
 
-      const getDynamicLimits = (p) => {
-        if ((command.id === 'extend_drunk' || command.id === 'extend_drunk_2') && dur > 0) {
-          if (p.id === 'locus') return { min: 0, max: dur }
-          if (p.id === 'ambitus') return { min: 0, max: dur / 2 }
-          if (p.id === 'clock') return { min: 0.032, max: dur }
-        }
-        return { min: p.min, max: p.max }
+      // Build resolution context
+      const context = {
+        inputDuration: dur,
+        outputDuration: outdur,
+        paramValues
       }
 
-      // Clock must be > 0.03
+      // Clock must be > 0.03 (CDP constraint for extend_drunk)
       const clock = paramValues.clock ?? 0.1
       if (clock <= 0.03) {
         errors.clock = `must be > 0.03s`
       }
 
-      // Check breakpoint curve values against param min/max
+      // Check breakpoint curve values against resolved limits
       const bpCurves = data.breakpointCurves || {}
       const allParams = [...(command.params || []), ...(command.flags || [])]
       for (const param of allParams) {
-        const limits = getDynamicLimits(param)
+        const limits = resolveParamLimits(param, context)
         const curve = bpCurves[param.id]
         if (curve && Array.isArray(curve)) {
           for (const pt of curve) {
@@ -233,6 +251,11 @@ function ProcessNode({ data, id, selected }) {
               break
             }
           }
+        }
+        // Also validate static params
+        const validation = validateParamValue(param, paramValues[param.id], context)
+        if (!validation.valid) {
+          errors[param.id] = validation.error
         }
       }
 
@@ -248,15 +271,13 @@ function ProcessNode({ data, id, selected }) {
     const isBreakpointParam = param.supportsBreakpoint && param.type === 'number'
     const currentValue = data.paramValues?.[param.id] ?? param.default
 
-    const getDynamicLimits = (p) => {
-      if ((command.id === 'extend_drunk' || command.id === 'extend_drunk_2') && inputDuration > 0) {
-        if (p.id === 'locus') return { min: 0, max: inputDuration }
-        if (p.id === 'ambitus') return { min: 0, max: inputDuration / 2 }
-        if (p.id === 'clock') return { min: 0.032, max: inputDuration }
-      }
-      return { min: p.min, max: p.max }
+    // Build resolution context for this param
+    const context = {
+      inputDuration,
+      outputDuration: data.paramValues?.outdur ?? 10,
+      paramValues: data.paramValues || {}
     }
-    const limits = getDynamicLimits(param)
+    const limits = resolveParamLimits(param, context)
 
     const toggleBreakpoint = () => {
       const current = data.breakpointCurves?.[param.id]
@@ -269,9 +290,11 @@ function ProcessNode({ data, id, selected }) {
       } else {
         const outdur = data.paramValues?.outdur ?? 10
         const defaultVal = data.paramValues?.[param.id] ?? param.default
+        const pctValue = limits.max !== limits.min ? ((defaultVal - limits.min) / (limits.max - limits.min)) * 100 : 0
+        const clampedPct = Math.max(0, Math.min(100, pctValue))
         const curves = { ...(data.breakpointCurves || {}), [param.id]: [
-          { time: 0, value: defaultVal },
-          { time: outdur, value: defaultVal },
+          { time: 0, value: clampedPct },
+          { time: outdur, value: clampedPct },
         ]}
         data.onUpdate(id, { breakpointCurves: curves })
       }
@@ -317,6 +340,14 @@ function ProcessNode({ data, id, selected }) {
               ⚠ {validationErrors[param.id]}
             </span>
           )}
+          {/* Show indicator when breakpoint file is connected */}
+          {data.breakpointConnections?.[param.id] && (
+            <span title="Connected to breakpoint file" style={{
+              fontSize: '0.58em', color: '#ec4899', marginLeft: 4,
+            }}>
+              📎
+            </span>
+          )}
         </div>
         {param.type === 'number' && !isBreakpoint && (
           <input type="number"
@@ -358,7 +389,7 @@ function ProcessNode({ data, id, selected }) {
         <BreakpointEditor
           points={data.breakpointCurves[param.id]}
           onChange={updateBreakpoints}
-          timeMax={data.paramValues?.outdur ?? 10}
+          timeMax={resolveBreakpointTimeDomain(param, context).max}
           valueMin={0}
           valueMax={100}
           paramMin={limits.min}
@@ -456,6 +487,30 @@ function ProcessNode({ data, id, selected }) {
       </div>
 
       <Handle type="source" position={Position.Right} style={handleStyle(colour)} />
+
+      {/* Breakpoint file input handles for breakpoint-enabled params */}
+      {command.params?.filter(p => p.supportsBreakpoint).map((param, idx) => {
+        const hasConnection = data.breakpointConnections?.[param.id]
+        const totalBpParams = command.params.filter(p => p.supportsBreakpoint).length
+        const topOffset = 45 + (idx * 20)
+        return (
+          <Handle
+            key={param.id}
+            id={param.id}
+            type="target"
+            position={Position.Right}
+            style={{
+              ...handleStyle('#ec4899'),
+              top: `${topOffset}px`,
+              right: -10,
+              width: 8,
+              height: 8,
+              background: hasConnection ? '#ec4899' : '#1e293b',
+              border: hasConnection ? '2px solid #ec4899' : '2px solid #475569',
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -522,7 +577,350 @@ function OutputNode({ data, id }) {
   )
 }
 
-const nodeTypes = { source: SourceNode, process: ProcessNode, output: OutputNode }
+// ── Breakpoint File Node ────────────────────────────────────────────
+// Generates CDP .brk files that can connect to process node parameters
+function BreakpointFileNode({ data, id, selected }) {
+  const [viewMode, setViewMode] = useState(data.viewMode || 'visual')
+  const [timeDomain, setTimeDomain] = useState(data.timeDomain || 'output')
+  const [timeMax, setTimeMax] = useState(data.timeMax || 10)
+  const [paramMin, setParamMin] = useState(data.paramMin || 0)
+  const [paramMax, setParamMax] = useState(data.paramMax || 1)
+  const [points, setPoints] = useState(data.points || [
+    { time: 0, value: 50 },
+    { time: 10, value: 50 }
+  ])
+  const [textContent, setTextContent] = useState(data.textContent || '')
+  const [textError, setTextError] = useState(null)
+  const [label, setLabel] = useState(data.label || 'breakpoint')
+
+  const colour = '#ec4899' // Pink for breakpoint files
+
+  // Connected source info
+  const connectedSourceId = data.connectedSourceId
+  const connectedSourceDuration = data.connectedSourceDuration || 0
+
+  // Sync points to text when switching to text view
+  useEffect(() => {
+    if (viewMode === 'text' && !textContent) {
+      // Convert points (percentage) to actual values then to text
+      const actualPoints = percentageToPoints(points, paramMin, paramMax)
+      setTextContent(pointsToBreakpointText(actualPoints))
+    }
+  }, [viewMode])
+
+  // Update parent when values change
+  useEffect(() => {
+    data.onUpdate?.(id, {
+      viewMode,
+      points,
+      textContent,
+      timeDomain,
+      timeMax,
+      paramMin,
+      paramMax,
+      label,
+      filePath: data.filePath,
+      status: data.status,
+      connectedSourceId,
+      connectedSourceDuration
+    })
+  }, [points, textContent, viewMode, timeDomain, timeMax, paramMin, paramMax, label, connectedSourceId, connectedSourceDuration])
+
+  const handleTextChange = (newText) => {
+    setTextContent(newText)
+    const { points: parsedPoints, error } = parseBreakpointText(newText)
+    setTextError(error)
+
+    if (!error && parsedPoints.length >= 2) {
+      // Convert actual values to percentage for visual editor
+      const pctPoints = pointsToPercentage(parsedPoints, paramMin, paramMax)
+      setPoints(pctPoints)
+      // Update timeMax based on last point
+      if (parsedPoints.length > 0) {
+        const maxTime = parsedPoints[parsedPoints.length - 1].time
+        if (maxTime > timeMax) {
+          setTimeMax(maxTime)
+        }
+      }
+    }
+  }
+
+  const handlePointsChange = (newPoints) => {
+    setPoints(newPoints)
+    // Update text content when points change (for bidirectional sync)
+    const actualPoints = percentageToPoints(newPoints, paramMin, paramMax)
+    setTextContent(pointsToBreakpointText(actualPoints))
+  }
+
+  const syncDurationFromSource = () => {
+    if (connectedSourceDuration > 0) {
+      setTimeMax(connectedSourceDuration)
+      // Scale points to new duration
+      const currentMax = Math.max(...points.map(p => p.time), timeMax)
+      if (currentMax > 0) {
+        const scaled = points.map(p => ({
+          ...p,
+          time: (p.time / currentMax) * connectedSourceDuration
+        }))
+        setPoints(scaled)
+        // Also update text
+        const actualPoints = percentageToPoints(scaled, paramMin, paramMax)
+        setTextContent(pointsToBreakpointText(actualPoints))
+      }
+    }
+  }
+
+  const exportToFile = async () => {
+    if (!window.cdpStudio) return
+
+    // Use text content if valid, otherwise convert points
+    let actualPoints
+    if (textContent && !textError) {
+      const { points: parsed } = parseBreakpointText(textContent)
+      actualPoints = parsed
+    } else {
+      actualPoints = percentageToPoints(points, paramMin, paramMax)
+    }
+
+    const filename = `${label}_${Date.now()}.brk`
+    try {
+      const filePath = await window.cdpStudio.writeBreakpointFile(actualPoints, filename)
+      data.onUpdate?.(id, { filePath, status: 'exported' })
+    } catch (e) {
+      console.error('Failed to export breakpoint file:', e)
+    }
+  }
+
+  return (
+    <div style={{ ...nodeStyle(colour), outline: selected ? `2px solid ${colour}` : 'none', width: 260 }}>
+      <Handle type="target" position={Position.Left} style={handleStyle(colour)} id="duration-source" />
+
+      <div style={nodeTitleStyle(colour)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.62em', opacity: 0.8, fontWeight: 700 }}>〰 BREAKPOINT FILE</span>
+          <span style={{ fontSize: '0.55em', color: colour, fontFamily: 'monospace' }}>.brk</span>
+        </div>
+      </div>
+
+      <div style={{ padding: '8px 10px' }}>
+        {/* View mode toggle */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+          <button
+            onClick={() => setViewMode('visual')}
+            className="nodrag"
+            style={{
+              flex: 1,
+              padding: '3px 8px',
+              fontSize: '0.7em',
+              background: viewMode === 'visual' ? colour + '44' : '#1e293b',
+              border: `1px solid ${viewMode === 'visual' ? colour : '#334155'}`,
+              color: viewMode === 'visual' ? colour : '#64748b',
+              borderRadius: 4,
+              cursor: 'pointer'
+            }}
+          >
+            〰 Visual
+          </button>
+          <button
+            onClick={() => setViewMode('text')}
+            className="nodrag"
+            style={{
+              flex: 1,
+              padding: '3px 8px',
+              fontSize: '0.7em',
+              background: viewMode === 'text' ? colour + '44' : '#1e293b',
+              border: `1px solid ${viewMode === 'text' ? colour : '#334155'}`,
+              color: viewMode === 'text' ? colour : '#64748b',
+              borderRadius: 4,
+              cursor: 'pointer'
+            }}
+          >
+            {'</>'} Text
+          </button>
+        </div>
+
+        {/* Label input */}
+        <div style={{ marginBottom: 6 }}>
+          <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Label</label>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="nodrag"
+            style={{
+              width: '100%', background: '#1e293b', border: '1px solid #334155',
+              borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+              fontSize: '0.7em', marginTop: 2
+            }}
+          />
+        </div>
+
+        {/* Time Domain + Sync button */}
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Time Domain</label>
+            {connectedSourceDuration > 0 && (
+              <button
+                onClick={syncDurationFromSource}
+                className="nodrag"
+                style={{
+                  fontSize: '0.58em',
+                  padding: '1px 6px',
+                  background: '#1e293b',
+                  border: '1px solid #22c55e',
+                  color: '#22c55e',
+                  borderRadius: 4,
+                  cursor: 'pointer'
+                }}
+              >
+                Sync: {connectedSourceDuration.toFixed(1)}s
+              </button>
+            )}
+          </div>
+          <select
+            value={timeDomain}
+            onChange={(e) => setTimeDomain(e.target.value)}
+            className="nodrag"
+            style={{
+              width: '100%', background: '#1e293b', border: '1px solid #334155',
+              borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+              fontSize: '0.7em', marginTop: 2
+            }}
+          >
+            <option value="input">Input Duration</option>
+            <option value="output">Output Duration</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        {/* Time Max for custom */}
+        {timeDomain === 'custom' && (
+          <div style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Time Max (s)</label>
+            <input
+              type="number"
+              value={timeMax}
+              onChange={(e) => {
+                const newMax = parseFloat(e.target.value) || 1
+                setTimeMax(newMax)
+              }}
+              min={0.1}
+              max={3600}
+              step={0.1}
+              className="nodrag"
+              style={{
+                width: '100%', background: '#1e293b', border: '1px solid #334155',
+                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                fontSize: '0.7em', marginTop: 2
+              }}
+            />
+          </div>
+        )}
+
+        {/* Value Range */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Value Min</label>
+            <input
+              type="number"
+              value={paramMin}
+              onChange={(e) => {
+                const newMin = parseFloat(e.target.value) || 0
+                setParamMin(newMin)
+                // Update text to reflect new range
+                if (textContent) {
+                  const actualPoints = percentageToPoints(points, newMin, paramMax)
+                  setTextContent(pointsToBreakpointText(actualPoints))
+                }
+              }}
+              className="nodrag"
+              style={{
+                width: '100%', background: '#1e293b', border: '1px solid #334155',
+                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                fontSize: '0.7em', marginTop: 2
+              }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Value Max</label>
+            <input
+              type="number"
+              value={paramMax}
+              onChange={(e) => {
+                const newMax = parseFloat(e.target.value) || 1
+                setParamMax(newMax)
+                // Update text to reflect new range
+                if (textContent) {
+                  const actualPoints = percentageToPoints(points, paramMin, newMax)
+                  setTextContent(pointsToBreakpointText(actualPoints))
+                }
+              }}
+              className="nodrag"
+              style={{
+                width: '100%', background: '#1e293b', border: '1px solid #334155',
+                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                fontSize: '0.7em', marginTop: 2
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Visual or Text Editor */}
+        {viewMode === 'visual' ? (
+          <BreakpointEditor
+            points={points}
+            onChange={handlePointsChange}
+            timeMax={timeMax}
+            valueMin={0}
+            valueMax={100}
+            paramMin={paramMin}
+            paramMax={paramMax}
+            colour={colour}
+            width={238}
+            height={70}
+          />
+        ) : (
+          <TextEditor
+            value={textContent}
+            onChange={handleTextChange}
+            height={100}
+            error={textError}
+          />
+        )}
+
+        {/* Export button */}
+        <button
+          onClick={exportToFile}
+          disabled={textError !== null}
+          style={{
+            ...smallBtnStyle(colour),
+            width: '100%',
+            marginTop: 8,
+            opacity: textError ? 0.5 : 1
+          }}
+        >
+          {data.filePath ? '✓ Re-export .brk' : 'Export .brk File'}
+        </button>
+
+        {/* Status */}
+        {data.filePath && (
+          <div style={{ fontSize: '0.6em', color: '#64748b', marginTop: 4, wordBreak: 'break-all' }}>
+            {data.filePath.split('/').pop()}
+          </div>
+        )}
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={handleStyle(colour)}
+        id="breakpoint"
+      />
+    </div>
+  )
+}
+
+const nodeTypes = { source: SourceNode, process: ProcessNode, output: OutputNode, breakpointFile: BreakpointFileNode }
 
 // ── Main NodeGraph ─────────────────────────────────────────────────
 export default function NodeGraph({ onAIHelp }) {
@@ -636,6 +1034,9 @@ export default function NodeGraph({ onAIHelp }) {
         alert('Missing input for ' + command.label + '. Connect a source or process node.')
         return
       }
+      const inputInfo = await window.cdpStudio.getAudioInfo(inputPath).catch(() => null)
+      const inputDuration = inputInfo?.duration || 0
+
       if (command.twoInputs && !input2Path) {
         updateNodeData(processNode.id, { status: 'error' })
         updateNodeData(outputNodeId, { chainRunning: false })
@@ -645,7 +1046,6 @@ export default function NodeGraph({ onAIHelp }) {
 
       // Validate mono requirement
       if (command.multichannel === false) {
-        const inputInfo = await window.cdpStudio.getAudioInfo(inputPath).catch(() => null)
         if (inputInfo && inputInfo.channels > 1) {
           updateNodeData(processNode.id, { status: 'error' })
           updateNodeData(outputNodeId, { chainRunning: false })
@@ -656,16 +1056,30 @@ export default function NodeGraph({ onAIHelp }) {
 
       const paramValues = { ...(processNode.data.paramValues || {}) }
 
-      // Write breakpoint files and replace numeric values with file paths
+      // Write breakpoint files (inline curves or connected breakpoint file nodes)
       const breakpointCurves = processNode.data.breakpointCurves || {}
+      const breakpointConnections = processNode.data.breakpointConnections || {}
+      const resolutionContext = {
+        inputDuration,
+        outputDuration: paramValues.outdur ?? 10,
+        paramValues
+      }
+
+      // First check for connected breakpoint file nodes
+      for (const [paramId, bpFilePath] of Object.entries(breakpointConnections)) {
+        if (bpFilePath) {
+          paramValues[paramId] = bpFilePath
+        }
+      }
+
+      // Then handle inline breakpoint curves (override if both exist)
       for (const [paramId, points] of Object.entries(breakpointCurves)) {
         if (points && Array.isArray(points) && points.length >= 2) {
           const param = command.params?.find(p => p.id === paramId)
-          const paramMin = param?.min ?? 0
-          const paramMax = param?.max ?? 100
+          const limits = resolveParamLimits(param, resolutionContext)
           const actualPoints = points.map(p => ({
             time: p.time,
-            value: paramMin + (p.value / 100) * (paramMax - paramMin),
+            value: limits.min + (p.value / 100) * (limits.max - limits.min),
           }))
           const filename = `${processNode.id}_${paramId}_${Date.now()}.brk`
           try {
@@ -754,18 +1168,56 @@ export default function NodeGraph({ onAIHelp }) {
   }, [onAIHelp])
 
   const onConnect = useCallback((connection) => {
+    const sourceNode = nodesRef.current.find(n => n.id === connection.source)
+    const isBreakpointConnection = sourceNode?.type === 'breakpointFile'
+
     setEdges(eds => addEdge({
       ...connection,
-      style: { stroke: '#334155', strokeWidth: 2 },
-      animated: false,
+      style: isBreakpointConnection
+        ? { stroke: '#ec4899', strokeWidth: 2, strokeDasharray: '5,5' }
+        : { stroke: '#334155', strokeWidth: 2 },
+      animated: isBreakpointConnection,
       deletable: true,
     }, eds))
 
-    // Propagate input path from source to connected process node
+    // Propagate input path from source/breakpoint file to connected process node
     setNodes(nds => {
-      const sourceNode = nds.find(n => n.id === connection.source)
-      const inputPath = sourceNode?.data?.filePath || sourceNode?.data?.outputPath
+      const srcNode = nds.find(n => n.id === connection.source)
+      const tgtNode = nds.find(n => n.id === connection.target)
+      const inputPath = srcNode?.data?.filePath || srcNode?.data?.outputPath
+      const isBreakpointFile = srcNode?.type === 'breakpointFile'
+      const isTargetBreakpointFile = tgtNode?.type === 'breakpointFile'
+
+      // Source connecting to breakpoint file inlet (for duration sync)
+      if (isTargetBreakpointFile && connection.targetHandle === 'duration-source') {
+        const sourceDuration = srcNode?.data?.audioInfo?.duration || 0
+        return nds.map(n => {
+          if (n.id !== connection.target) return n
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              connectedSourceId: connection.source,
+              connectedSourceDuration: sourceDuration
+            }
+          }
+        })
+      }
+
+      if (isBreakpointFile) {
+        // Breakpoint file connection - store the breakpoint file path for the specific parameter
+        const paramId = connection.targetHandle
+        return nds.map(n => {
+          if (n.id !== connection.target) return n
+          const breakpointConnections = { ...(n.data.breakpointConnections || {}) }
+          breakpointConnections[paramId] = srcNode.data.filePath
+          return { ...n, data: { ...n.data, breakpointConnections } }
+        })
+      }
+
       if (!inputPath) return nds
+
+      // Regular audio connection
       const targetHandle = connection.targetHandle
       return nds.map(n => {
         if (n.id !== connection.target) return n
@@ -815,6 +1267,26 @@ export default function NodeGraph({ onAIHelp }) {
       position: { x: 700, y: 180 + nds.filter(n => n.type === 'output').length * 200 },
       data: { filePath: null, audioInfo: null, chainRunning: false, onRenderChain: renderChain },
     }])
+  }
+
+  const addBreakpointFileNode = () => {
+    const id = `bpfile-${uuidv4()}`
+    setNodes(nds => [...nds, {
+      id, type: 'breakpointFile',
+      position: { x: 200 + Math.random() * 200, y: 400 + Math.random() * 200 },
+      data: {
+        points: [{ time: 0, value: 50 }, { time: 10, value: 50 }],
+        timeDomain: 'output',
+        timeMax: 10,
+        paramMin: 0,
+        paramMax: 1,
+        label: 'bp',
+        filePath: null,
+        status: null,
+        onUpdate: updateNodeData,
+      },
+    }])
+    setShowPicker(false)
   }
 
   return (
@@ -903,6 +1375,10 @@ export default function NodeGraph({ onAIHelp }) {
             <button onClick={addOutputNode}
               style={{ background: '#1e293b', border: '1px solid #334155', color: '#f59e0b', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Add Output
+            </button>
+            <button onClick={addBreakpointFileNode}
+              style={{ background: '#1e293b', border: '1px solid #334155', color: '#ec4899', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              + Breakpoint
             </button>
           </div>
         </Panel>

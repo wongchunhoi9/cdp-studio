@@ -260,12 +260,22 @@ export const CDP_COMMANDS = [
       {
         id: 'startlevel', label: 'Start Level (0–1)', type: 'number',
         default: 0.0, min: 0, max: 1,
-        help: '0 = silence at start, 1 = full volume. Fade-in: 0 → 1.'
+        supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'inputDuration' },
+        help: '0 = silence at start, 1 = full volume. Fade-in: 0 → 1. Supports breakpoint curve.'
       },
       {
         id: 'endlevel', label: 'End Level (0–1)', type: 'number',
         default: 1.0, min: 0, max: 1,
-        help: '0 = silence at end, 1 = full volume. Fade-out: 1 → 0.'
+        supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'inputDuration' },
+        // Cross-parameter constraint: endlevel should typically be >= startlevel for fade-in
+        // But this is just an example - users might want fade-out (1→0) or complex curves
+        constraints: [
+          // No hard constraint here since fade-out (1→0) is valid
+          // But we could warn if levels are inverted with constraint: { type: 'custom', fn: ... }
+        ],
+        help: '0 = silence at end, 1 = full volume. Fade-out: 1 → 0. Supports breakpoint curve.'
       }
     ],
     flags: [],
@@ -439,31 +449,57 @@ export const CDP_COMMANDS = [
         id: 'outdur', label: 'Output Duration', type: 'number',
         default: 10, min: 0.1, max: 3600,
         supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'self' },  // Uses its own value as max time
         help: 'Total minimum duration of output (seconds). Breakpoint: LH col = outfile time, RH col = time in infile.'
       },
       {
         id: 'locus', label: 'Locus', type: 'number',
         default: 1, min: 0, max: 3600,
         supportsBreakpoint: true,
-        help: 'Center time in source for drunken walk (seconds). Constant = fixed position in infile. Breakpoint: LH col = outfile time, RH col = infile time.'
+        breakpointTimeDomain: { type: 'outputDuration', param: 'outdur' },
+        // Dynamic limits: max is input file duration
+        dependsOn: {
+          min: { type: 'constant', value: 0 },
+          max: { type: 'inputDuration', fallback: 3600 }
+        },
+        help: 'Center time in source for drunken walk (seconds). Constant = fixed position in infile. Breakpoint: LH col = outfile time, RH col = infile time. Max = input duration.'
       },
       {
         id: 'ambitus', label: 'Ambitus', type: 'number',
         default: 0.5, min: 0.01, max: 3600,
         supportsBreakpoint: true,
-        help: 'Half-width of region to read segments from (seconds). Breakpoint: LH col = outfile time, RH col = half-width in seconds.'
+        breakpointTimeDomain: { type: 'outputDuration', param: 'outdur' },
+        // Dynamic limits: max is half of input duration
+        dependsOn: {
+          min: { type: 'constant', value: 0.01 },
+          max: { type: 'inputDuration', scale: 0.5, fallback: 1800 }
+        },
+        help: 'Half-width of region to read segments from (seconds). Breakpoint: LH col = outfile time, RH col = half-width in seconds. Max = half input duration.'
       },
       {
         id: 'step', label: 'Step', type: 'number',
         default: 0.5, min: 0.002, max: 3600,
         supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'outputDuration', param: 'outdur' },
+        // Step must be > 0.002 and auto-adjusted if larger than ambitus
+        dependsOn: {
+          min: { type: 'constant', value: 0.002 },
+          max: { type: 'inputDuration', fallback: 3600 }
+        },
         help: 'Max random step between segment reads (seconds, > 0.002). Auto-adjusted if larger than ambitus. Breakpoint: LH col = outfile time, RH col = step in seconds.'
       },
       {
         id: 'clock', label: 'Clock', type: 'number',
         default: 0.1, min: 0.032, max: 3600,
         supportsBreakpoint: true,
-        help: 'Time between segment reads = segment duration (seconds, > splicelen * 2). Breakpoint: LH col = outfile time, RH col = clock in seconds.'
+        breakpointTimeDomain: { type: 'outputDuration', param: 'outdur' },
+        // Clock must be > 0.03 (2x default splice length of 15ms)
+        // Also must be > splicelen * 2 when s flag is used
+        dependsOn: {
+          min: { type: 'constant', value: 0.032 },
+          max: { type: 'inputDuration', fallback: 3600 }
+        },
+        help: 'Time between segment reads = segment duration (seconds, > splicelen * 2). Breakpoint: LH col = outfile time, RH col = clock in seconds. Must be > 0.03s.'
       },
     ],
     flags: [
@@ -540,6 +576,72 @@ export const CDP_COMMANDS = [
     ],
   },
 
+  // EXTEND LOOP (Mode 1) — Loop segments until file exhausted
+  // Correct syntax: extend loop 1 infile outfile start len step [-w splen] [-s scat] [-b]
+  {
+    id: 'extend_loop',
+    program: 'extend',
+    mode: 'loop',
+    modeNum: 1,
+    label: 'Loop (Mode 1)',
+    category: 'extend',
+    description: 'Loop a segment, advancing through the source file until it is exhausted. Mode 1.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm#LOOP',
+    params: [
+      {
+        id: 'start', label: 'Start Time (s)', type: 'number',
+        default: 0.0, min: 0, max: 3600,
+        supportsBreakpoint: true,
+        help: 'Time in source where looping begins (seconds).'
+      },
+      {
+        id: 'len', label: 'Loop Length (ms)', type: 'number',
+        default: 500, min: 1, max: 10000,
+        supportsBreakpoint: true,
+        help: 'Length of each looped segment in milliseconds.'
+      },
+      {
+        id: 'step', label: 'Step (ms)', type: 'number',
+        default: 100, min: 0, max: 10000,
+        supportsBreakpoint: true,
+        help: 'Advance in source from start of one loop to the next (ms). 0 = repeat same segment.'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice Length', type: 'number', default: 25, min: 0, max: 1000, help: 'Length of splice in ms. Default: 25.' },
+      { id: 's', label: 'Scatter', type: 'number', default: 0, min: 0, max: 1, help: 'Make step advance irregularly, within the timeframe given. 0 = no scatter.' },
+    ],
+  },
+
+  // EXTEND PAD — Pad silence to reach target duration
+  // Correct syntax: extend pad infile outfile time
+  {
+    id: 'extend_pad',
+    program: 'extend',
+    mode: 'pad',
+    modeNum: null,
+    label: 'Pad (Silence)',
+    category: 'extend',
+    description: 'Pad the sound with silence to reach a target duration. Adds silence at the end.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm',
+    params: [
+      {
+        id: 'time', label: 'Target Duration (s)', type: 'number',
+        default: 10, min: 0.1, max: 3600,
+        supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'inputDuration' },
+        help: 'Total duration of output in seconds. If less than input, input is truncated.'
+      },
+    ],
+    flags: [],
+  },
+
   // BOUNCE — Accelerating repeats, decaying in level
   // Correct syntax: bounce bounce inf outf count startgap shorten endlevel ewarp [-smin] [-c | -e]
   {
@@ -586,6 +688,145 @@ export const CDP_COMMANDS = [
       { id: 'c', label: 'Cut Overlap', type: 'number', default: 0, min: 0, max: 1, help: 'If repeats overlap, cut to avoid clipping. 1 = enable. WARNING: do not use with -e flag.' },
       { id: 'e', label: 'Shrink From Start', type: 'number', default: 0, min: 0, max: 1, help: 'Shrink elements by trimming start instead of end. 1 = enable. WARNING: do not use with -c flag.' },
     ],
+  },
+
+  // ══ MODIFY BRASSAGE Sub-modes ════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE
+
+  // MODIFY BRASSAGE 1 — Pitchshift only
+  // Correct syntax: modify brassage 1 infile outfile pitchshift
+  {
+    id: 'modify_brassage_1',
+    program: 'modify',
+    mode: 'brassage',
+    modeNum: 1,
+    label: 'Brassage Pitch (Mode 1)',
+    category: 'modify',
+    description: 'Granular pitch-shift while retaining (more or less) the same duration. Mode 1.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE',
+    params: [
+      {
+        id: 'pitchshift', label: 'Pitch Shift (semitones)', type: 'number',
+        default: 0, min: -24, max: 24,
+        supportsBreakpoint: true,
+        help: 'Transposition in semitones. 0 = no change, 12 = octave up, -12 = octave down.'
+      },
+    ],
+    flags: [],
+  },
+
+  // MODIFY BRASSAGE 2 — Timestretch only (velocity)
+  // Correct syntax: modify brassage 2 infile outfile velocity
+  {
+    id: 'modify_brassage_2',
+    program: 'modify',
+    mode: 'brassage',
+    modeNum: 2,
+    label: 'Brassage Time (Mode 2)',
+    category: 'modify',
+    description: 'Granular timestretch/compression while retaining the same pitch. Mode 2.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE',
+    params: [
+      {
+        id: 'velocity', label: 'Velocity', type: 'number',
+        default: 1.0, min: 0, max: 20,
+        supportsBreakpoint: true,
+        help: 'Speed of advance relative to output. 1 = no stretch, 0.5 = 2× longer, 2 = 2× shorter. 0 = infinite stretch.'
+      },
+    ],
+    flags: [],
+  },
+
+  // MODIFY BRASSAGE 5 — Granulate/texture
+  // Correct syntax: modify brassage 5 infile outfile density
+  {
+    id: 'modify_brassage_5',
+    program: 'modify',
+    mode: 'brassage',
+    modeNum: 5,
+    label: 'Brassage Granulate (Mode 5)',
+    category: 'modify',
+    description: 'Granulate the source — put a grainy surface on the sound. Mode 5.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE',
+    params: [
+      {
+        id: 'density', label: 'Density', type: 'number',
+        default: 1.0, min: 0.01, max: 2,
+        supportsBreakpoint: true,
+        help: 'Grain overlap. 1.0 = normal, <1 = gaps (pointillist), >1 = dense/overlapping. Very small values are unpredictable.'
+      },
+    ],
+    flags: [],
+  },
+
+  // ══ MODIFY RADICAL Sub-modes ══════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL
+
+  // MODIFY RADICAL 2 — Shred
+  // Correct syntax: modify radical 2 infile outfile repeats chunklen [-s scatter] [-n]
+  {
+    id: 'modify_radical_shred',
+    program: 'modify',
+    mode: 'radical',
+    modeNum: 2,
+    label: 'Shred (Mode 2)',
+    category: 'modify',
+    description: 'Shred the sound: randomly segment and reorder chunks within existing duration. Mode 2.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL',
+    params: [
+      {
+        id: 'repeats', label: 'Repeat Count', type: 'number',
+        default: 3, min: 1, max: 100,
+        supportsBreakpoint: true,
+        help: 'Number of times to shred. More = more jumbled. 1 = single pass.'
+      },
+      {
+        id: 'chunklen', label: 'Chunk Length (s)', type: 'number',
+        default: 0.1, min: 0.001, max: 10,
+        supportsBreakpoint: true,
+        help: 'Average length of chunks to cut and permutate (seconds).'
+      },
+    ],
+    flags: [
+      { id: 's', label: 'Scatter', type: 'number', default: 1, min: 0, max: 100, help: 'Randomisation of cuts. 0 = reorder without shredding.' },
+    ],
+  },
+
+  // MODIFY RADICAL 5 — Ring Modulation
+  // Correct syntax: modify radical 5 infile outfile modulating-frq
+  {
+    id: 'modify_radical_ringmod',
+    program: 'modify',
+    mode: 'radical',
+    modeNum: 5,
+    label: 'Ring Mod (Mode 5)',
+    category: 'modify',
+    description: 'Ring modulate: multiply audio by a sine wave at given frequency. Creates hollow, metallic sound. Mode 5.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL',
+    params: [
+      {
+        id: 'modulatingFrq', label: 'Modulator Freq (Hz)', type: 'number',
+        default: 440, min: 0.01, max: 20000,
+        supportsBreakpoint: true,
+        help: 'Frequency of the modulating sine wave in Hz. Try: 50-200 (drone), 440-1000 (metallic), 2000+ (chipmunk).'
+      },
+    ],
+    flags: [],
   },
 
 ]
