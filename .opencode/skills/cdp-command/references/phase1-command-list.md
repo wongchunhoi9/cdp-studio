@@ -33,7 +33,7 @@ These make a single clarinet note into a longer/evolving event.
 | `extend loop` | `extend loop 1 infile outfile start len step [-w splice]` | ⭐⭐⭐ | `cgroextd.htm#LOOP` | ✅ Implemented |
 | `extend stutter` | `extend stutter infile outfile datafile...` | ⭐⭐⭐ | `cgroextd.htm#STUTTER` | ❌ Skipped (requires datafile) |
 | `extend bounce` | `extend bounce infile outfile count startgap shorten` | ⭐⭐⭐ | `cgroextd.htm#BOUNCE` | ✅ Implemented |
-| `extend pad` | `extend pad infile outfile time` | ⭐⭐ | `cgroextd.htm#PAD` | ✅ Implemented |
+| `extend pad` | `extend pad infile outfile time` | ⭐⭐ | `cgroextd.htm#PAD` | ❌ Does not exist in CDP8 |
 
 ### MODIFY additional modes
 These work directly on .wav with no extra files.

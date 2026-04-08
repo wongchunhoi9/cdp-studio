@@ -616,32 +616,6 @@ export const CDP_COMMANDS = [
     ],
   },
 
-  // EXTEND PAD — Pad silence to reach target duration
-  // Correct syntax: extend pad infile outfile time
-  {
-    id: 'extend_pad',
-    program: 'extend',
-    mode: 'pad',
-    modeNum: null,
-    label: 'Pad (Silence)',
-    category: 'extend',
-    description: 'Pad the sound with silence to reach a target duration. Adds silence at the end.',
-    inputExt: ['.wav'],
-    outputExt: '.wav',
-    multichannel: true,
-    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm',
-    params: [
-      {
-        id: 'time', label: 'Target Duration (s)', type: 'number',
-        default: 10, min: 0.1, max: 3600,
-        supportsBreakpoint: true,
-        breakpointTimeDomain: { type: 'inputDuration' },
-        help: 'Total duration of output in seconds. If less than input, input is truncated.'
-      },
-    ],
-    flags: [],
-  },
-
   // BOUNCE — Accelerating repeats, decaying in level
   // Correct syntax: bounce bounce inf outf count startgap shorten endlevel ewarp [-smin] [-c | -e]
   {
