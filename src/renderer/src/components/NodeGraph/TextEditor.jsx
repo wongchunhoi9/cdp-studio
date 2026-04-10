@@ -67,8 +67,8 @@ export default function TextEditor({
       <div
         style={{
           display: 'flex',
-          background: '#0a0f1a',
-          border: `1px solid ${error || firstError ? '#ef4444' : '#334155'}`,
+          background: 'var(--app-bg)',
+          border: `1px solid ${error || firstError ? '#ef4444' : 'var(--border-light)'}`,
           borderRadius: 6,
           overflow: 'hidden',
           height,
@@ -81,12 +81,12 @@ export default function TextEditor({
         {lineNumbers && (
           <div
             style={{
-              background: '#0d1520',
+              background: 'var(--panel-bg)',
               padding: '6px 8px',
-              color: '#475569',
+              color: 'var(--text-muted)',
               textAlign: 'right',
               userSelect: 'none',
-              borderRight: '1px solid #1e293b',
+              borderRight: '1px solid var(--border-dim)',
               minWidth: '2em',
             }}
           >
@@ -113,7 +113,7 @@ export default function TextEditor({
             border: 'none',
             outline: 'none',
             padding: '6px 8px',
-            color: '#f1f5f9',
+            color: 'var(--text-bright)',
             resize: 'none',
             fontFamily: 'inherit',
             fontSize: 'inherit',
@@ -142,7 +142,7 @@ export default function TextEditor({
       <div
         style={{
           fontSize: '0.6em',
-          color: '#475569',
+          color: 'var(--text-muted)',
           marginTop: 4,
           fontFamily: 'monospace',
         }}

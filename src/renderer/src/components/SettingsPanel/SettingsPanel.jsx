@@ -46,28 +46,28 @@ export default function SettingsPanel({ onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: '#000000aa',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000,
     }}>
       <div style={{
-        background: '#0f172a', border: '1px solid #334155',
+        background: 'var(--app-bg)', border: '1px solid var(--border-dim)',
         borderRadius: 14, padding: 28, width: 520,
         boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ fontSize: '1em', fontWeight: 700, color: '#f8fafc' }}>Settings</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '1.1em' }}>✕</button>
+          <div style={{ fontSize: '1em', fontWeight: 700, color: 'var(--text-bright)' }}>Settings</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1em' }}>✕</button>
         </div>
 
         {/* ── CDP Path ── */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: '0.78em', fontWeight: 600, color: '#94a3b8', display: 'block', marginBottom: 6 }}>
+          <label style={{ fontSize: '0.78em', fontWeight: 600, color: 'var(--text-normal)', display: 'block', marginBottom: 6 }}>
             CDP Binary Folder
           </label>
-          <div style={{ fontSize: '0.72em', color: '#475569', marginBottom: 8, lineHeight: 1.6 }}>
-            The folder containing <code style={{ color: '#7dd3fc', background: '#1e293b', padding: '1px 5px', borderRadius: 3 }}>pvoc</code>, <code style={{ color: '#7dd3fc', background: '#1e293b', padding: '1px 5px', borderRadius: 3 }}>grain</code>, <code style={{ color: '#7dd3fc', background: '#1e293b', padding: '1px 5px', borderRadius: 3 }}>modify</code> etc.<br/>
-            Usually: <code style={{ color: '#7dd3fc', background: '#1e293b', padding: '1px 5px', borderRadius: 3 }}>/Users/yourname/cdpr8/_cdp/_cdprogs</code>
+          <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
+            The folder containing <code style={{ color: 'var(--accent-text)', background: 'var(--panel-bg)', padding: '1px 5px', borderRadius: 3 }}>pvoc</code>, <code style={{ color: 'var(--accent-text)', background: 'var(--panel-bg)', padding: '1px 5px', borderRadius: 3 }}>grain</code>, <code style={{ color: 'var(--accent-text)', background: 'var(--panel-bg)', padding: '1px 5px', borderRadius: 3 }}>modify</code> etc.<br/>
+            Usually: <code style={{ color: 'var(--accent-text)', background: 'var(--panel-bg)', padding: '1px 5px', borderRadius: 3 }}>/Users/yourname/cdpr8/_cdp/_cdprogs</code>
           </div>
 
           <input
@@ -75,8 +75,8 @@ export default function SettingsPanel({ onClose }) {
             onChange={e => setSettings(s => ({ ...s, cdpBinPath: e.target.value }))}
             placeholder="/Users/yourname/cdpr8/_cdp/_cdprogs"
             style={{
-              width: '100%', background: '#1e293b', border: '1px solid #334155',
-              color: '#f1f5f9', borderRadius: 7, padding: '8px 12px',
+              width: '100%', background: 'var(--panel-bg)', border: '1px solid var(--border-light)',
+              color: 'var(--text-bright)', borderRadius: 7, padding: '8px 12px',
               fontSize: '0.78em', fontFamily: 'monospace', boxSizing: 'border-box',
             }}
           />
@@ -138,13 +138,13 @@ export default function SettingsPanel({ onClose }) {
 
         {/* ── Other settings ── */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: '0.78em', fontWeight: 600, color: '#94a3b8', display: 'block', marginBottom: 8 }}>
+          <label style={{ fontSize: '0.78em', fontWeight: 600, color: 'var(--text-normal)', display: 'block', marginBottom: 8 }}>
             Default Sample Rate
           </label>
           <select
             value={settings.defaultSampleRate || 44100}
             onChange={e => setSettings(s => ({ ...s, defaultSampleRate: parseInt(e.target.value) }))}
-            style={{ background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', borderRadius: 6, padding: '6px 10px', fontSize: '0.78em' }}
+            style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78em' }}
           >
             <option value={44100}>44100 Hz</option>
             <option value={48000}>48000 Hz</option>
@@ -160,7 +160,7 @@ export default function SettingsPanel({ onClose }) {
               onChange={e => setSettings(s => ({ ...s, keepIntermediateFiles: e.target.checked }))}
               style={{ accentColor: '#3b82f6' }}
             />
-            <span style={{ fontSize: '0.78em', color: '#94a3b8' }}>
+            <span style={{ fontSize: '0.78em', color: 'var(--text-normal)' }}>
               Keep all intermediate files (recommended — nothing ever deleted)
             </span>
           </label>
@@ -172,10 +172,10 @@ export default function SettingsPanel({ onClose }) {
         </button>
 
         {/* How to find your path */}
-        <div style={{ marginTop: 16, fontSize: '0.7em', color: '#334155', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 16, fontSize: '0.7em', color: 'var(--text-muted)', lineHeight: 1.8 }}>
           To find your CDP path: open Terminal and run{' '}
-          <code style={{ color: '#475569', background: '#1e293b', padding: '1px 5px', borderRadius: 3 }}>find ~/ -name "pvoc" 2&gt;/dev/null</code>
-          {' '}— copy everything except the trailing <code style={{ color: '#475569' }}>/pvoc</code>
+          <code style={{ color: 'var(--text-muted)', background: 'var(--panel-bg)', padding: '1px 5px', borderRadius: 3 }}>find ~/ -name "pvoc" 2&gt;/dev/null</code>
+          {' '}— copy everything except the trailing <code style={{ color: 'var(--text-muted)' }}>/pvoc</code>
         </div>
       </div>
     </div>

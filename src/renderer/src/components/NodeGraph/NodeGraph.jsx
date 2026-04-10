@@ -6,6 +6,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import WaveSurfer from 'wavesurfer.js'
+import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import { CDP_COMMANDS, CDP_CATEGORIES, getCommandById } from '../../lib/cdpCommands.js'
 import { buildArgs, buildOutputPath } from '../../lib/cdpRunner.js'
 import { resolveParamLimits, resolveBreakpointTimeDomain, validateParamValue } from '../../lib/paramResolver.js'
@@ -31,9 +32,10 @@ function FormatBadge({ ext, side = 'in' }) {
 }
 
 // ── Mini waveform for Source node ─────────────────────────────────
-function MiniWaveform({ filePath }) {
+function MiniWaveform({ filePath, nodeSelected }) {
   const ref = useRef(null)
   const wsRef = useRef(null)
+  const regionsRef = useRef(null)
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
 
@@ -53,6 +55,30 @@ function MiniWaveform({ filePath }) {
       normalize: true, interact: true, hideScrollbar: true,
     })
     wsRef.current = ws
+
+    const wsRegions = ws.registerPlugin(RegionsPlugin.create())
+    regionsRef.current = wsRegions
+
+    wsRegions.enableDragSelection({
+      color: 'rgba(255, 255, 255, 0.45)', // Much more visible against the green
+    })
+
+    wsRegions.on('region-created', (region) => {
+      // Allow only one region; remove the rest
+      wsRegions.getRegions().forEach(r => {
+        if (r.id !== region.id) r.remove()
+      })
+    })
+
+    wsRegions.on('region-out', (region) => {
+      // Loop the region when cursor exits it
+      region.play()
+    })
+
+    ws.on('dblclick', () => {
+      wsRegions.clearRegions()
+    })
+
     ws.on('ready', () => setReady(true))
     ws.on('play', () => setPlaying(true))
     ws.on('pause', () => setPlaying(false))
@@ -66,15 +92,37 @@ function MiniWaveform({ filePath }) {
     return () => { ws.destroy(); wsRef.current = null }
   }, [filePath])
 
+  // Spacebar playback
+  useEffect(() => {
+    if (!nodeSelected) return
+    const handleKeyDown = (e) => {
+      // Ignore if composing or inside an input
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return
+      if (e.key === ' ') {
+        e.preventDefault() // prevent page scroll
+        togglePlay()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [nodeSelected])
+
   const togglePlay = () => {
-    wsRef.current?.playPause()
+    const isActuallyPlaying = wsRef.current?.isPlaying()
+    const regions = regionsRef.current?.getRegions() || []
+    if (regions.length > 0 && !isActuallyPlaying) {
+      regions[0].play()
+    } else {
+      wsRef.current?.playPause()
+    }
   }
 
   return (
-    <div style={{
+    <div className="nodrag" style={{
       borderRadius: 4, overflow: 'hidden',
       background: '#020a06', border: '1px solid #1a3a22',
       marginTop: 6, position: 'relative', minHeight: 32,
+      cursor: 'text', // Gives a text-selection-like cursor to indicate drag-able regions
     }}>
       <div ref={ref} style={{ width: '100%' }} />
       {ready && (
@@ -104,7 +152,7 @@ function MiniWaveform({ filePath }) {
 }
 
 // ── Source Node ────────────────────────────────────────────────────
-function SourceNode({ data, id }) {
+function SourceNode({ data, id, selected }) {
   const handleBrowse = async () => {
     if (!window.cdpStudio) return
     const result = await window.cdpStudio.openFile()
@@ -136,7 +184,7 @@ function SourceNode({ data, id }) {
 
   return (
     <div
-      style={nodeStyle('#22c55e')}
+      style={{ ...nodeStyle('#22c55e'), outline: selected ? '2px solid #22c55e' : 'none' }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -149,7 +197,7 @@ function SourceNode({ data, id }) {
       <div style={{ padding: '8px 10px' }}>
         {data.filePath ? (
           <>
-            <div style={{ fontSize: '0.7em', color: '#94a3b8', wordBreak: 'break-all', marginBottom: 3 }}>
+            <div style={{ fontSize: '0.7em', color: 'var(--text-normal)', wordBreak: 'break-all', marginBottom: 3 }}>
               {data.label}
             </div>
             {data.audioInfo && (
@@ -157,10 +205,10 @@ function SourceNode({ data, id }) {
                 {data.audioInfo.channels}ch · {(data.audioInfo.sampleRate / 1000).toFixed(1)}kHz · {fmt(data.audioInfo.duration)}
               </div>
             )}
-            <MiniWaveform filePath={data.filePath} />
+            <MiniWaveform filePath={data.filePath} nodeSelected={selected} />
           </>
         ) : (
-          <div style={{ fontSize: '0.72em', color: '#475569', textAlign: 'center', padding: '6px 0' }}>
+          <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
             No file loaded — drop a clip here
           </div>
         )}
@@ -309,10 +357,10 @@ function ProcessNode({ data, id, selected }) {
     <div key={param.id} style={{ marginBottom: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <label style={{ fontSize: '0.67em', color: '#94a3b8' }}>
+          <label style={{ fontSize: '0.67em', color: 'var(--text-normal)' }}>
             {param.label}
             {param.id in (command.flags?.reduce((a, f) => ({ ...a, [f.id]: true }), {}) || {})
-              ? <span style={{ color: '#334155', marginLeft: 3 }}>(-{param.id})</span>
+              ? <span style={{ color: 'var(--text-muted)', marginLeft: 3 }}>(-{param.id})</span>
               : null}
           </label>
           {isBreakpointParam && (
@@ -322,9 +370,9 @@ function ProcessNode({ data, id, selected }) {
               title={isBreakpoint ? 'Disable breakpoint curve' : 'Enable breakpoint curve'}
               style={{
                 fontSize: '0.58em',
-                background: isBreakpoint ? colour + '44' : '#1e293b',
-                border: `1px solid ${isBreakpoint ? colour : '#334155'}`,
-                color: isBreakpoint ? colour : '#475569',
+                background: isBreakpoint ? colour + '44' : 'var(--border-dim)',
+                border: `1px solid ${isBreakpoint ? colour : 'var(--border-light)'}`,
+                color: isBreakpoint ? colour : 'var(--text-muted)',
                 borderRadius: 4,
                 padding: '1px 5px',
                 cursor: 'pointer',
@@ -357,7 +405,7 @@ function ProcessNode({ data, id, selected }) {
             value={currentValue}
             onChange={e => updateParam(param.id, parseFloat(e.target.value))}
             style={{
-              width: 64, background: '#1e293b', border: `1px solid ${colour}33`,
+              width: 64, background: 'var(--border-dim)', border: `1px solid ${colour}33`,
               borderRadius: 4, padding: '1px 4px', color: colour,
               fontFamily: 'monospace', fontSize: '0.67em', textAlign: 'right',
               outline: 'none',
@@ -407,7 +455,7 @@ function ProcessNode({ data, id, selected }) {
               : e.target.value
             updateParam(param.id, val)
           }}
-          style={{ width: '100%', background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', borderRadius: 4, padding: '2px 4px', fontSize: '0.7em' }}>
+          style={{ width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 4, padding: '2px 4px', fontSize: '0.7em' }}>
           {param.options.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       )}
@@ -433,11 +481,11 @@ function ProcessNode({ data, id, selected }) {
           {/* Format flow: in → out */}
           <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
             <FormatBadge ext={command.inputExt?.[0] || '.wav'} side="in" />
-            <span style={{ fontSize: '0.55em', color: '#475569' }}>→</span>
+            <span style={{ fontSize: '0.55em', color: 'var(--text-muted)' }}>→</span>
             <FormatBadge ext={command.outputExt || '.wav'} side="out" />
           </div>
         </div>
-        <div style={{ fontSize: '0.78em', fontWeight: 700, color: '#f1f5f9' }}>{command.label}</div>
+        <div style={{ fontSize: '0.78em', fontWeight: 700, color: 'var(--text-bright)' }}>{command.label}</div>
       </div>
 
       <div style={{ padding: '8px 10px' }}>
@@ -446,7 +494,7 @@ function ProcessNode({ data, id, selected }) {
 
         {/* Input file indicator */}
         {data.inputPath && (
-          <div style={{ fontSize: '0.62em', color: '#475569', marginBottom: 4, wordBreak: 'break-all' }}>
+          <div style={{ fontSize: '0.62em', color: 'var(--text-muted)', marginBottom: 4, wordBreak: 'break-all' }}>
             ↳ {data.inputPath.split('/').pop()}
           </div>
         )}
@@ -466,7 +514,7 @@ function ProcessNode({ data, id, selected }) {
 
         {/* Multichannel note */}
         {!command.multichannel && (
-          <div style={{ fontSize: '0.58em', color: '#475569', marginBottom: 4 }}>
+          <div style={{ fontSize: '0.58em', color: 'var(--text-muted)', marginBottom: 4 }}>
             ⚠ Mono input only
           </div>
         )}
@@ -505,8 +553,8 @@ function ProcessNode({ data, id, selected }) {
               right: -10,
               width: 8,
               height: 8,
-              background: hasConnection ? '#ec4899' : '#1e293b',
-              border: hasConnection ? '2px solid #ec4899' : '2px solid #475569',
+              background: hasConnection ? '#ec4899' : 'var(--border-dim)',
+              border: hasConnection ? '2px solid #ec4899' : '2px solid var(--border-light)',
             }}
           />
         )
@@ -516,7 +564,7 @@ function ProcessNode({ data, id, selected }) {
 }
 
 // ── Output Node — runs the whole chain ────────────────────────────
-function OutputNode({ data, id }) {
+function OutputNode({ data, id, selected }) {
   const fmt = (s) => {
     if (!s || s === 0) return '—'
     const m = Math.floor(s / 60), sec = (s % 60).toFixed(1).padStart(4, '0')
@@ -524,7 +572,7 @@ function OutputNode({ data, id }) {
   }
 
   return (
-    <div style={nodeStyle('#f59e0b')}>
+    <div style={{ ...nodeStyle('#f59e0b'), outline: selected ? '2px solid #f59e0b' : 'none' }}>
       <Handle type="target" position={Position.Left} style={handleStyle('#f59e0b')} />
       <div style={nodeTitleStyle('#f59e0b')}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -535,7 +583,7 @@ function OutputNode({ data, id }) {
       <div style={{ padding: '8px 10px' }}>
         {data.filePath ? (
           <>
-            <div style={{ fontSize: '0.7em', color: '#94a3b8', wordBreak: 'break-all', marginBottom: 3 }}>
+              <div style={{ fontSize: '0.7em', color: 'var(--text-normal)', wordBreak: 'break-all', marginBottom: 3 }}>
               ✓ {data.filePath.split('/').pop()}
             </div>
             {data.audioInfo && (
@@ -544,10 +592,10 @@ function OutputNode({ data, id }) {
               </div>
             )}
             {/* Quick preview waveform */}
-            <MiniWaveform filePath={data.filePath} />
+            <MiniWaveform filePath={data.filePath} nodeSelected={selected} />
           </>
         ) : (
-          <div style={{ fontSize: '0.7em', color: '#475569', marginBottom: 8 }}>
+          <div style={{ fontSize: '0.7em', color: 'var(--text-muted)', marginBottom: 8 }}>
             Connect process nodes, then click Render Chain ↓
           </div>
         )}
@@ -692,7 +740,7 @@ function BreakpointFileNode({ data, id, selected }) {
   }
 
   return (
-    <div style={{ ...nodeStyle(colour), outline: selected ? `2px solid ${colour}` : 'none', width: 260 }}>
+    <div style={{ ...nodeStyle(colour), outline: selected ? `2px solid ${colour}` : 'none' }}>
       <Handle type="target" position={Position.Left} style={handleStyle(colour)} id="duration-source" />
 
       <div style={nodeTitleStyle(colour)}>
@@ -712,9 +760,9 @@ function BreakpointFileNode({ data, id, selected }) {
               flex: 1,
               padding: '3px 8px',
               fontSize: '0.7em',
-              background: viewMode === 'visual' ? colour + '44' : '#1e293b',
-              border: `1px solid ${viewMode === 'visual' ? colour : '#334155'}`,
-              color: viewMode === 'visual' ? colour : '#64748b',
+              background: viewMode === 'visual' ? colour + '44' : 'var(--border-dim)',
+              border: `1px solid ${viewMode === 'visual' ? colour : 'var(--border-light)'}`,
+              color: viewMode === 'visual' ? colour : 'var(--text-normal)',
               borderRadius: 4,
               cursor: 'pointer'
             }}
@@ -728,9 +776,9 @@ function BreakpointFileNode({ data, id, selected }) {
               flex: 1,
               padding: '3px 8px',
               fontSize: '0.7em',
-              background: viewMode === 'text' ? colour + '44' : '#1e293b',
-              border: `1px solid ${viewMode === 'text' ? colour : '#334155'}`,
-              color: viewMode === 'text' ? colour : '#64748b',
+              background: viewMode === 'text' ? colour + '44' : 'var(--border-dim)',
+              border: `1px solid ${viewMode === 'text' ? colour : 'var(--border-light)'}`,
+              color: viewMode === 'text' ? colour : 'var(--text-normal)',
               borderRadius: 4,
               cursor: 'pointer'
             }}
@@ -741,15 +789,15 @@ function BreakpointFileNode({ data, id, selected }) {
 
         {/* Label input */}
         <div style={{ marginBottom: 6 }}>
-          <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Label</label>
+          <label style={{ fontSize: '0.65em', color: 'var(--text-normal)' }}>Label</label>
           <input
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             className="nodrag"
             style={{
-              width: '100%', background: '#1e293b', border: '1px solid #334155',
-              borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+              width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+              borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
               fontSize: '0.7em', marginTop: 2
             }}
           />
@@ -758,7 +806,7 @@ function BreakpointFileNode({ data, id, selected }) {
         {/* Time Domain + Sync button */}
         <div style={{ marginBottom: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Time Domain</label>
+            <label style={{ fontSize: '0.65em', color: 'var(--text-normal)' }}>Time Domain</label>
             {connectedSourceDuration > 0 && (
               <button
                 onClick={syncDurationFromSource}
@@ -766,7 +814,7 @@ function BreakpointFileNode({ data, id, selected }) {
                 style={{
                   fontSize: '0.58em',
                   padding: '1px 6px',
-                  background: '#1e293b',
+                  background: 'var(--border-dim)',
                   border: '1px solid #22c55e',
                   color: '#22c55e',
                   borderRadius: 4,
@@ -782,8 +830,8 @@ function BreakpointFileNode({ data, id, selected }) {
             onChange={(e) => setTimeDomain(e.target.value)}
             className="nodrag"
             style={{
-              width: '100%', background: '#1e293b', border: '1px solid #334155',
-              borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+              width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+              borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
               fontSize: '0.7em', marginTop: 2
             }}
           >
@@ -796,7 +844,7 @@ function BreakpointFileNode({ data, id, selected }) {
         {/* Time Max for custom */}
         {timeDomain === 'custom' && (
           <div style={{ marginBottom: 6 }}>
-            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Time Max (s)</label>
+            <label style={{ fontSize: '0.65em', color: 'var(--text-normal)' }}>Time Max (s)</label>
             <input
               type="number"
               value={timeMax}
@@ -809,8 +857,8 @@ function BreakpointFileNode({ data, id, selected }) {
               step={0.1}
               className="nodrag"
               style={{
-                width: '100%', background: '#1e293b', border: '1px solid #334155',
-                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+                borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
                 fontSize: '0.7em', marginTop: 2
               }}
             />
@@ -820,7 +868,7 @@ function BreakpointFileNode({ data, id, selected }) {
         {/* Value Range */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Value Min</label>
+            <label style={{ fontSize: '0.65em', color: 'var(--text-normal)' }}>Value Min</label>
             <input
               type="number"
               value={paramMin}
@@ -835,14 +883,14 @@ function BreakpointFileNode({ data, id, selected }) {
               }}
               className="nodrag"
               style={{
-                width: '100%', background: '#1e293b', border: '1px solid #334155',
-                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+                borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
                 fontSize: '0.7em', marginTop: 2
               }}
             />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.65em', color: '#94a3b8' }}>Value Max</label>
+            <label style={{ fontSize: '0.65em', color: 'var(--text-normal)' }}>Value Max</label>
             <input
               type="number"
               value={paramMax}
@@ -857,8 +905,8 @@ function BreakpointFileNode({ data, id, selected }) {
               }}
               className="nodrag"
               style={{
-                width: '100%', background: '#1e293b', border: '1px solid #334155',
-                borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+                borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
                 fontSize: '0.7em', marginTop: 2
               }}
             />
@@ -876,7 +924,7 @@ function BreakpointFileNode({ data, id, selected }) {
             paramMin={paramMin}
             paramMax={paramMax}
             colour={colour}
-            width={238}
+            width={200}
             height={70}
           />
         ) : (
@@ -904,7 +952,7 @@ function BreakpointFileNode({ data, id, selected }) {
 
         {/* Status */}
         {data.filePath && (
-          <div style={{ fontSize: '0.6em', color: '#64748b', marginTop: 4, wordBreak: 'break-all' }}>
+          <div style={{ fontSize: '0.6em', color: 'var(--text-normal)', marginTop: 4, wordBreak: 'break-all' }}>
             {data.filePath.split('/').pop()}
           </div>
         )}
@@ -1175,7 +1223,7 @@ export default function NodeGraph({ onAIHelp }) {
       ...connection,
       style: isBreakpointConnection
         ? { stroke: '#ec4899', strokeWidth: 2, strokeDasharray: '5,5' }
-        : { stroke: '#334155', strokeWidth: 2 },
+        : { stroke: 'var(--border-light)', strokeWidth: 2 },
       animated: isBreakpointConnection,
       deletable: true,
     }, eds))
@@ -1290,14 +1338,14 @@ export default function NodeGraph({ onAIHelp }) {
   }
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#090f1a' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--nodegraph-bg)' }}>
       <style>{`
         input[type="range"] {
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
           height: 6px;
-          background: #1e293b;
+          background: var(--border-dim);
           border-radius: 3px;
           outline: none;
           cursor: pointer;
@@ -1310,7 +1358,7 @@ export default function NodeGraph({ onAIHelp }) {
           border-radius: 50%;
           background: var(--accent-color, #3b82f6);
           cursor: pointer;
-          border: 2px solid #0d1520;
+          border: 2px solid var(--panel-bg);
         }
         input[type="range"]::-moz-range-thumb {
           width: 14px;
@@ -1318,7 +1366,7 @@ export default function NodeGraph({ onAIHelp }) {
           border-radius: 50%;
           background: var(--accent-color, #3b82f6);
           cursor: pointer;
-          border: 2px solid #0d1520;
+          border: 2px solid var(--panel-bg);
         }
         .react-flow__edge.selected .react-flow__edge-path {
           stroke: #ef4444 !important;
@@ -1344,17 +1392,17 @@ export default function NodeGraph({ onAIHelp }) {
         fitView
         selectable={true}
         deleteKeyCode={['Backspace', 'Delete']}
-        style={{ background: '#090f1a' }}
+        style={{ background: 'var(--nodegraph-bg)' }}
         defaultEdgeOptions={{
-          style: { stroke: '#334155', strokeWidth: 2 },
+          style: { stroke: 'var(--border-light)', strokeWidth: 2 },
           deletable: true,
           selectable: true,
         }}
       >
-        <Background color="#1e293b" gap={20} size={1} />
-        <Controls style={{ background: '#1e293b', border: '1px solid #334155' }} />
+        <Background color="var(--panel-bg)" gap={20} size={1} />
+        <Controls style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)' }} />
         <MiniMap
-          style={{ background: '#0f172a', border: '1px solid #1e293b' }}
+          style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-dim)' }}
           nodeColor={n => {
             if (n.type === 'source') return '#22c55e'
             if (n.type === 'output') return '#f59e0b'
@@ -1365,25 +1413,25 @@ export default function NodeGraph({ onAIHelp }) {
         <Panel position="top-left">
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => setShowPicker(p => !p)}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Add Process
             </button>
             <button onClick={addSourceNode}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#22c55e', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: '#22c55e', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Add Source
             </button>
             <button onClick={addOutputNode}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#f59e0b', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: '#f59e0b', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Add Output
             </button>
             <button onClick={addBreakpointFileNode}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#ec4899', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: '#ec4899', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Breakpoint
             </button>
           </div>
         </Panel>
         <Panel position="bottom-center">
-          <div style={{ fontSize: '0.65em', color: '#334155', background: '#090f1a', padding: '3px 10px', borderRadius: 6, border: '1px solid #1e293b' }}>
+          <div style={{ fontSize: '0.65em', color: 'var(--text-muted)', background: 'var(--app-bg)', padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border-dim)' }}>
             Click a wire or node to select · Backspace / Delete to remove
           </div>
         </Panel>
@@ -1393,11 +1441,11 @@ export default function NodeGraph({ onAIHelp }) {
       {showPicker && (
         <div style={{
           position: 'absolute', top: 50, left: 10, zIndex: 100,
-          background: '#0f172a', border: '1px solid #334155',
+          background: 'var(--panel-bg)', border: '1px solid var(--border-dim)',
           borderRadius: 12, padding: 12, width: 300,
           boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
         }}>
-          <div style={{ fontSize: '0.78em', fontWeight: 700, color: '#94a3b8', marginBottom: 10 }}>
+          <div style={{ fontSize: '0.78em', fontWeight: 700, color: 'var(--text-normal)', marginBottom: 10 }}>
             Add a CDP Process Node
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -1405,9 +1453,9 @@ export default function NodeGraph({ onAIHelp }) {
               <button key={cat.id} onClick={() => setSelectedCat(cat.id)}
                 style={{
                   padding: '3px 8px', borderRadius: 6, fontSize: '0.67em',
-                  background: selectedCat === cat.id ? cat.colour + '33' : '#1e293b',
-                  border: `1px solid ${selectedCat === cat.id ? cat.colour : '#334155'}`,
-                  color: selectedCat === cat.id ? cat.colour : '#64748b', cursor: 'pointer',
+                  background: selectedCat === cat.id ? cat.colour + '33' : 'var(--border-dim)',
+                  border: `1px solid ${selectedCat === cat.id ? cat.colour : 'var(--border-light)'}`,
+                  color: selectedCat === cat.id ? cat.colour : 'var(--text-normal)', cursor: 'pointer',
                 }}>
                 {cat.label.split(' — ')[0]}
               </button>
@@ -1418,20 +1466,20 @@ export default function NodeGraph({ onAIHelp }) {
               <div key={cmd.id} onClick={() => addProcessNode(cmd.id)}
                 style={{
                   padding: '8px 10px', borderRadius: 7, marginBottom: 4,
-                  background: '#1e293b', cursor: 'pointer', border: '1px solid transparent',
+                  background: 'var(--border-dim)', cursor: 'pointer', border: '1px solid transparent',
                   transition: 'all 0.1s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#334155'}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-light)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontSize: '0.8em', fontWeight: 600, color: '#f1f5f9' }}>{cmd.label}</span>
+                  <span style={{ fontSize: '0.8em', fontWeight: 600, color: 'var(--text-bright)' }}>{cmd.label}</span>
                   <div style={{ display: 'flex', gap: 3 }}>
                     <FormatBadge ext={cmd.inputExt?.[0] || '.wav'} side="in" />
                     <FormatBadge ext={cmd.outputExt || '.wav'} side="out" />
                   </div>
                 </div>
-                <div style={{ fontSize: '0.67em', color: '#475569' }}>{cmd.description.slice(0, 90)}…</div>
+                <div style={{ fontSize: '0.67em', color: 'var(--text-muted)' }}>{cmd.description.slice(0, 90)}…</div>
                 {!cmd.multichannel && <div style={{ fontSize: '0.6em', color: '#f59e0b', marginTop: 2 }}>⚠ Mono input only</div>}
               </div>
             ))}
@@ -1447,7 +1495,7 @@ export default function NodeGraph({ onAIHelp }) {
 
 // ── Shared styles ──────────────────────────────────────────────────
 const nodeStyle = (colour) => ({
-  background: '#0d1520', border: `1px solid ${colour}55`,
+  background: 'var(--panel-bg)', border: `1px solid ${colour}55`,
   borderRadius: 10, minWidth: 190, maxWidth: 230,
   boxShadow: `0 0 12px ${colour}11`,
 })
@@ -1456,11 +1504,16 @@ const nodeTitleStyle = (colour) => ({
   padding: '6px 10px', borderRadius: '10px 10px 0 0',
 })
 const handleStyle = (colour) => ({
-  width: 10, height: 10, background: colour, border: '2px solid #0d1520',
+  width: 10, height: 10, background: colour, border: '2px solid var(--panel-bg)',
 })
-const smallBtnStyle = (colour) => ({
-  width: '100%', padding: '4px 0', marginTop: 4,
-  background: colour + '22', border: `1px solid ${colour}55`,
-  color: colour, borderRadius: 6, fontSize: '0.72em',
-  cursor: 'pointer', fontWeight: 600,
-})
+const smallBtnStyle = (colour) => {
+  const isNeutral = colour === '#334155' || colour === '#475569'
+  return {
+    width: '100%', padding: '4px 0', marginTop: 4,
+    background: isNeutral ? 'var(--border-dim)' : colour + '22',
+    border: `1px solid ${isNeutral ? 'var(--border-light)' : colour + '55'}`,
+    color: isNeutral ? 'var(--text-muted)' : colour,
+    borderRadius: 6, fontSize: '0.72em',
+    cursor: 'pointer', fontWeight: 600,
+  }
+}

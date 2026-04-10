@@ -90,23 +90,23 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
-      background: '#090f1a',
+      background: 'var(--panel-bg)',
     }}>
       {/* Header */}
       <div style={{
         padding: '12px 14px 8px',
-        borderBottom: '1px solid #1e293b',
+        borderBottom: '1px solid var(--border-dim)',
       }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 8,
         }}>
-          <div style={{ fontSize: '0.78em', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '0.78em', fontWeight: 700, color: 'var(--text-normal)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Clip Bin
           </div>
           <div style={{
-            fontSize: '0.7em', color: '#475569',
-            background: '#1e293b', padding: '2px 8px', borderRadius: 10,
+            fontSize: '0.7em', color: 'var(--text-muted)',
+            background: 'var(--border-dim)', padding: '2px 8px', borderRadius: 10,
           }}>
             {clips.length} clips
           </div>
@@ -118,8 +118,8 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
           onChange={e => setFilter(e.target.value)}
           placeholder="Search clips…"
           style={{
-            width: '100%', background: '#1e293b', border: '1px solid #334155',
-            borderRadius: 6, padding: '5px 10px', color: '#f1f5f9',
+            width: '100%', background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+            borderRadius: 6, padding: '5px 10px', color: 'var(--text-bright)',
             fontSize: '0.78em', boxSizing: 'border-box',
           }}
         />
@@ -129,7 +129,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
         {filtered.length === 0 && (
           <div style={{
-            textAlign: 'center', color: '#334155', fontSize: '0.8em',
+            textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8em',
             marginTop: 40, lineHeight: 1.8,
           }}>
             <div style={{ fontSize: '1.6em', marginBottom: 8 }}>🎵</div>
@@ -148,8 +148,8 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
             }}
             style={{
               borderRadius: 8, marginBottom: 6, overflow: 'hidden',
-              border: `1px solid ${selectedClipId === clip.id ? clip.colour + '88' : '#1e293b'}`,
-              background: selectedClipId === clip.id ? clip.colour + '11' : '#0d1520',
+              border: `1px solid ${selectedClipId === clip.id ? clip.colour + '88' : 'var(--border-dim)'}`,
+              background: selectedClipId === clip.id ? clip.colour + '11' : (expandedId === clip.id ? 'var(--border-dim)' : 'transparent'),
               cursor: 'pointer', transition: 'all 0.12s',
             }}
             onClick={() => {
@@ -182,14 +182,14 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
                     onBlur={() => handleRename(clip)}
                     onClick={e => e.stopPropagation()}
                     style={{
-                      width: '100%', background: '#1e293b', border: '1px solid #3b82f6',
-                      borderRadius: 4, padding: '2px 6px', color: '#f1f5f9',
+                      width: '100%', background: 'var(--border-dim)', border: '1px solid var(--accent)',
+                      borderRadius: 4, padding: '2px 6px', color: 'var(--text-bright)',
                       fontSize: '0.78em',
                     }}
                   />
                 ) : (
                   <div style={{
-                    fontSize: '0.78em', fontWeight: 600, color: '#e2e8f0',
+                    fontSize: '0.78em', fontWeight: 600, color: 'var(--text-bright)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {clip.starred && <span style={{ marginRight: 4 }}>⭐</span>}
@@ -199,7 +199,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
               </div>
 
               {/* Duration */}
-              <div style={{ fontSize: '0.68em', color: '#475569', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.68em', color: 'var(--text-muted)', flexShrink: 0 }}>
                 {formatTime(clip.duration)}
               </div>
 
@@ -220,7 +220,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
                 onClick={e => handleStar(e, clip)}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '11px', color: clip.starred ? '#fbbf24' : '#334155',
+                  fontSize: '11px', color: clip.starred ? '#fbbf24' : 'var(--text-muted)',
                   padding: '2px', flexShrink: 0,
                 }}
               >
@@ -232,7 +232,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
             {expandedId === clip.id && (
               <div style={{
                 padding: '0 10px 10px',
-                borderTop: '1px solid #1e293b',
+                borderTop: '1px solid var(--border-light)',
               }}>
 
                 {/* Waveform preview */}
@@ -243,9 +243,9 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
                 {/* Command that made it */}
                 {clip.command && (
                   <div style={{
-                    fontSize: '0.68em', color: '#7dd3fc', fontFamily: 'monospace',
-                    background: '#0f172a', padding: '6px 8px', borderRadius: 5,
-                    border: '1px solid #1e3a5f', wordBreak: 'break-all',
+                    fontSize: '0.68em', color: 'var(--accent-text)', fontFamily: 'monospace',
+                    background: 'var(--app-bg)', padding: '6px 8px', borderRadius: 5,
+                    border: '1px solid var(--border-dim)', wordBreak: 'break-all',
                     marginBottom: 8,
                   }}>
                     $ {clip.command}
@@ -255,7 +255,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
                 {/* Date + sample rate */}
                 <div style={{
                   display: 'flex', gap: 8, flexWrap: 'wrap',
-                  fontSize: '0.68em', color: '#475569',
+                  fontSize: '0.68em', color: 'var(--text-muted)',
                   marginBottom: 8,
                 }}>
                   <span>{formatDate(clip.createdAt)}</span>
@@ -308,7 +308,7 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
 }
 
 const actionBtnStyle = {
-  background: '#1e293b', border: '1px solid #334155',
-  color: '#94a3b8', borderRadius: 6, padding: '3px 10px',
+  background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+  color: 'var(--text-normal)', borderRadius: 6, padding: '3px 10px',
   fontSize: '0.72em', cursor: 'pointer',
 }

@@ -147,11 +147,11 @@ export default function BreakpointEditor({
     const y = toY(pct)
     gridLines.push(
       <line key={`y-${i}`} x1={PADDING.left} y1={y} x2={width - PADDING.right} y2={y}
-        stroke="#1e293b" strokeWidth={1} />
+        stroke="var(--border-dim)" strokeWidth={1} />
     )
     gridLines.push(
       <text key={`yl-${i}`} x={PADDING.left + 2} y={y + 4}
-        textAnchor="start" fill="#64748b" fontSize={7} fontFamily="monospace">
+        textAnchor="start" fill="var(--text-normal)" fontSize={7} fontFamily="monospace">
         {pct.toFixed(0)}%
       </text>
     )
@@ -164,11 +164,11 @@ export default function BreakpointEditor({
     const x = toX(t)
     gridLines.push(
       <line key={`x-${i}`} x1={x} y1={PADDING.top} x2={x} y2={height - PADDING.bottom}
-        stroke="#1e293b" strokeWidth={1} />
+        stroke="var(--border-dim)" strokeWidth={1} />
     )
     gridLines.push(
       <text key={`xl-${i}`} x={x} y={height - 2}
-        textAnchor="middle" fill="#64748b" fontSize={8} fontFamily="monospace">
+        textAnchor="middle" fill="var(--text-normal)" fontSize={8} fontFamily="monospace">
         {t.toFixed(0)}s
       </text>
     )
@@ -188,7 +188,7 @@ export default function BreakpointEditor({
         onPointerCancel={handlePointerUp}
         onPointerLeave={handlePointerUp}
         style={{
-          background: '#0a0f1a',
+          background: 'var(--app-bg)',
           borderRadius: 6,
           border: `1px solid ${colour}33`,
           cursor: dragging !== null ? 'grabbing' : 'crosshair',
@@ -216,7 +216,7 @@ export default function BreakpointEditor({
             cx={toX(p.time)}
             cy={toY(p.value)}
             r={POINT_RADIUS}
-            fill={dragging === i ? colour : '#0d1520'}
+            fill={dragging === i ? colour : 'var(--panel-bg)'}
             stroke={colour}
             strokeWidth={2}
             style={{ cursor: dragging === i ? 'grabbing' : 'grab' }}
@@ -225,7 +225,7 @@ export default function BreakpointEditor({
         ))}
 
         {points.length <= 2 && (
-          <text x={width / 2} y={height / 2} textAnchor="middle" fill="#334155" fontSize={8}>
+          <text x={width / 2} y={height / 2} textAnchor="middle" fill="var(--text-muted)" fontSize={8}>
             click to add points
           </text>
         )}
@@ -237,7 +237,7 @@ export default function BreakpointEditor({
               y={Math.max(PADDING.top, toY(hovered.pct) - 18)}
               width={60}
               height={14}
-              fill="#1e293b"
+              fill="var(--border-dim)"
               stroke={colour}
               strokeWidth={1}
               rx={2}
@@ -246,7 +246,7 @@ export default function BreakpointEditor({
               x={toX(points[hovered.index]?.time ?? 0)}
               y={Math.max(PADDING.top + 8, toY(hovered.pct) - 8)}
               textAnchor="middle"
-              fill="#f1f5f9"
+              fill="var(--text-bright)"
               fontSize={8}
               fontFamily="monospace"
             >
@@ -257,7 +257,7 @@ export default function BreakpointEditor({
       </svg>
       <div style={{
         position: 'absolute', top: 2, right: 6,
-        fontSize: '0.58em', color: '#334155', fontFamily: 'monospace'
+        fontSize: '0.58em', color: 'var(--text-muted)', fontFamily: 'monospace'
       }}>
         {points.length} pt{points.length !== 1 ? 's' : ''}
       </div>

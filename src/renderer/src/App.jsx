@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import NodeGraph from './components/NodeGraph/NodeGraph.jsx'
 import ClipBin from './components/ClipBin/ClipBin.jsx'
 import TerminalLog from './components/TerminalLog/TerminalLog.jsx'
@@ -51,7 +51,7 @@ function AISidebar({ focusedCommand, onClose }) {
 
   const renderMd = (t) => {
     t = t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    t = t.replace(/`([^`\n]+)`/g, '<code style="background:#1e293b;color:#7dd3fc;padding:2px 5px;border-radius:3px;font-size:0.85em">$1</code>')
+    t = t.replace(/`([^`\n]+)`/g, '<code style="background:var(--border-dim);color:var(--accent-text);padding:2px 5px;border-radius:3px;font-size:0.85em">$1</code>')
     t = t.replace(/\n/g, '<br/>')
     return t
   }
@@ -59,26 +59,26 @@ function AISidebar({ focusedCommand, onClose }) {
   return (
     <div style={{
       width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column',
-      background: '#0a1220', borderLeft: '1px solid #1e293b',
+      background: 'var(--panel-bg)', borderLeft: '1px solid var(--border-dim)',
     }}>
       <div style={{
-        padding: '10px 14px', borderBottom: '1px solid #1e293b',
+        padding: '10px 14px', borderBottom: '1px solid var(--border-dim)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: '0.8em', fontWeight: 700, color: '#94a3b8' }}>AI Assistant</div>
+          <div style={{ fontSize: '0.8em', fontWeight: 700, color: 'var(--text-normal)' }}>AI Assistant</div>
           {focusedCommand && (
-            <div style={{ fontSize: '0.68em', color: '#3b82f6' }}>{focusedCommand.label}</div>
+            <div style={{ fontSize: '0.68em', color: 'var(--accent)' }}>{focusedCommand.label}</div>
           )}
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '1em' }}>✕</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1em' }}>✕</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
         {messages.length === 0 && (
-          <div style={{ fontSize: '0.75em', color: '#334155', lineHeight: 1.7 }}>
+          <div style={{ fontSize: '0.75em', color: 'var(--text-muted)', lineHeight: 1.7 }}>
             Ask anything about CDP commands, parameters, or techniques.<br/><br/>
-            Click <strong style={{ color: '#475569' }}>? Ask AI</strong> on any node to get instant help about that specific process.
+            Click <strong style={{ color: 'var(--text-muted)' }}>? Ask AI</strong> on any node to get instant help about that specific process.
           </div>
         )}
         {messages.map((m, i) => (
@@ -86,20 +86,20 @@ function AISidebar({ focusedCommand, onClose }) {
             marginBottom: 10,
             padding: '8px 10px',
             borderRadius: 8,
-            background: m.role === 'user' ? '#1e3a5f' : '#1a1f2e',
-            border: `1px solid ${m.role === 'user' ? '#2d5a8e' : '#1e293b'}`,
-            fontSize: '0.78em', color: '#e2e8f0', lineHeight: 1.6,
+            background: m.role === 'user' ? 'var(--accent-bg)' : 'var(--panel-bg)',
+            border: `1px solid ${m.role === 'user' ? 'var(--accent-hover)' : 'var(--border-dim)'}`,
+            fontSize: '0.78em', color: 'var(--text-bright)', lineHeight: 1.6,
           }}
             dangerouslySetInnerHTML={{ __html: renderMd(m.content) }}
           />
         ))}
         {loading && (
-          <div style={{ fontSize: '0.75em', color: '#475569', padding: '4px 0' }}>Thinking…</div>
+          <div style={{ fontSize: '0.75em', color: 'var(--text-muted)', padding: '4px 0' }}>Thinking…</div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ padding: '8px 12px', borderTop: '1px solid #1e293b' }}>
+      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-dim)' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             value={input}
@@ -108,13 +108,13 @@ function AISidebar({ focusedCommand, onClose }) {
             placeholder="Ask about CDP…"
             disabled={loading}
             style={{
-              flex: 1, background: '#1e293b', border: '1px solid #334155',
-              color: '#f1f5f9', borderRadius: 6, padding: '6px 8px',
+              flex: 1, background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+              color: 'var(--text-bright)', borderRadius: 6, padding: '6px 8px',
               fontSize: '0.75em',
             }}
           />
           <button onClick={() => send()} disabled={loading || !input.trim()} style={{
-            background: '#1e3a5f', border: '1px solid #3b82f6', color: '#7dd3fc',
+            background: 'var(--accent-bg)', border: '1px solid var(--accent)', color: 'var(--accent-text)',
             borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: '0.8em',
           }}>➤</button>
         </div>
@@ -130,6 +130,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [focusedCommand, setFocusedCommand] = useState(null)
   const [activeTab, setActiveTab] = useState('graph') // 'graph' | 'viewer'
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   const handleAIHelp = (command) => {
     setFocusedCommand(command)
@@ -142,10 +148,27 @@ export default function App() {
     setActiveTab(tab)
   }
 
+  // Global handler to switch between graph and viewer with Tab key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Tab') {
+        const activeTag = document.activeElement?.tagName
+        // Skip if user is actively typing in an input, textarea, or content editable
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag) || document.activeElement?.isContentEditable) {
+          return
+        }
+        e.preventDefault()
+        setActiveTab(prev => prev === 'graph' ? 'viewer' : 'graph')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100vh',
-      background: '#090f1a', color: '#f1f5f9',
+      background: 'var(--app-bg)', color: 'var(--text-bright)',
       fontFamily: "'Inter', system-ui, sans-serif",
       overflow: 'hidden',
     }}>
@@ -154,8 +177,8 @@ export default function App() {
       <div style={{
         height: 38, display: 'flex', alignItems: 'center',
         padding: '0 80px 0 16px', // 80px left padding for macOS traffic lights
-        borderBottom: '1px solid #1e293b',
-        background: '#060d1a', flexShrink: 0,
+        borderBottom: '1px solid var(--border-dim)',
+        background: 'var(--panel-bg)', flexShrink: 0,
         WebkitAppRegion: 'drag', // make it draggable like a native title bar
         userSelect: 'none',
       }}>
@@ -172,10 +195,10 @@ export default function App() {
               onClick={() => handleTabChange(tab.id)}
               style={{
                 background: 'none', border: 'none',
-                color: activeTab === tab.id ? '#f1f5f9' : '#475569',
+                color: activeTab === tab.id ? 'var(--text-bright)' : 'var(--text-muted)',
                 fontSize: '0.78em', fontWeight: 600, cursor: 'pointer',
                 WebkitAppRegion: 'no-drag',
-                borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
+                borderBottom: activeTab === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
                 paddingBottom: 2,
               }}
             >
@@ -186,10 +209,20 @@ export default function App() {
 
         <div style={{ display: 'flex', gap: 8, WebkitAppRegion: 'no-drag' }}>
           <button
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            style={{
+              background: 'var(--panel-bg)', border: '1px solid var(--border-light)',
+              color: 'var(--text-normal)', borderRadius: 6, padding: '3px 10px',
+              fontSize: '0.72em', cursor: 'pointer',
+            }}
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
+          <button
             onClick={() => setShowSettings(true)}
             style={{
-              background: '#1e293b', border: '1px solid #334155',
-              color: '#64748b', borderRadius: 6, padding: '3px 10px',
+              background: 'var(--border-dim)', border: '1px solid var(--border-light)',
+              color: 'var(--text-normal)', borderRadius: 6, padding: '3px 10px',
               fontSize: '0.72em', cursor: 'pointer',
             }}
           >
@@ -198,9 +231,9 @@ export default function App() {
           <button
             onClick={() => setShowAI(a => !a)}
             style={{
-              background: showAI ? '#1e3a5f' : '#1e293b',
-              border: `1px solid ${showAI ? '#3b82f6' : '#334155'}`,
-              color: showAI ? '#7dd3fc' : '#64748b',
+              background: showAI ? 'var(--accent-bg)' : 'var(--border-dim)',
+              border: `1px solid ${showAI ? 'var(--accent)' : 'var(--border-light)'}`,
+              color: showAI ? 'var(--accent-text)' : 'var(--text-normal)',
               borderRadius: 6, padding: '3px 10px', fontSize: '0.72em',
               cursor: 'pointer',
             }}
@@ -216,7 +249,7 @@ export default function App() {
         {/* Left: Clip Bin */}
         <div style={{
           width: 240, flexShrink: 0,
-          borderRight: '1px solid #1e293b',
+          borderRight: '1px solid var(--border-dim)',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
         }}>
           <ClipBin
@@ -240,7 +273,7 @@ export default function App() {
           <div style={{ flex: 1, overflow: 'auto', padding: 24, display: activeTab === 'viewer' ? 'block' : 'none' }}>
             {selectedClip ? (
               <div>
-                <div style={{ fontSize: '0.75em', color: '#475569', marginBottom: 16 }}>
+                <div style={{ fontSize: '0.75em', color: 'var(--text-muted)', marginBottom: 16 }}>
                   Viewing clip from Clip Bin — click any clip on the left to load it here
                 </div>
                 <WaveformViewer clip={selectedClip} compact={false} />
@@ -248,12 +281,12 @@ export default function App() {
                 {/* Command that made this clip */}
                 {selectedClip.command && (
                   <div style={{ marginTop: 16 }}>
-                    <div style={{ fontSize: '0.72em', color: '#475569', marginBottom: 6, fontWeight: 600 }}>
+                    <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>
                       CDP Command
                     </div>
                     <div style={{
-                      fontFamily: 'monospace', fontSize: '0.78em', color: '#7dd3fc',
-                      background: '#0f172a', border: '1px solid #1e3a5f',
+                      fontFamily: 'monospace', fontSize: '0.78em', color: 'var(--accent-text)',
+                      background: 'var(--app-bg)', border: '1px solid var(--border-dim)',
                       borderRadius: 8, padding: '10px 14px',
                     }}>
                       $ {selectedClip.command}
@@ -264,7 +297,7 @@ export default function App() {
             ) : (
               <div style={{
                 height: '100%', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', color: '#334155',
+                justifyContent: 'center', color: 'var(--text-normal)',
                 flexDirection: 'column', gap: 8,
               }}>
                 <div style={{ fontSize: '2em' }}>〜</div>

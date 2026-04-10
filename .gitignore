@@ -21,3 +21,6 @@ npm-debug.log*
 
 # OS
 Thumbs.db
+
+# Reference file
+Z_reference_files/

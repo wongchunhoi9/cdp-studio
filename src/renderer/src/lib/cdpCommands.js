@@ -15,14 +15,14 @@
 //   docUrl     — link to official CDP8 documentation page
 
 export const CDP_CATEGORIES = [
-  { id: 'pvoc',    label: 'PVOC — Spectral',   colour: '#8b5cf6' },
-  { id: 'blur',    label: 'BLUR — Spectral',    colour: '#06b6d4' },
-  { id: 'focus',   label: 'FOCUS — Spectral',   colour: '#a78bfa' },
-  { id: 'modify',  label: 'MODIFY — Time',      colour: '#3b82f6' },
-  { id: 'distort', label: 'DISTORT — Waveset',  colour: '#f59e0b' },
-  { id: 'grain',   label: 'GRAIN — Granular',   colour: '#ec4899' },
-  { id: 'extend',  label: 'EXTEND — Time-stretch', colour: '#f97316' },
-  { id: 'mix',     label: 'MIX — Combine',      colour: '#22c55e' },
+  { id: 'pvoc', label: 'PVOC — Spectral', colour: '#8b5cf6' },
+  { id: 'blur', label: 'BLUR — Spectral', colour: '#06b6d4' },
+  { id: 'focus', label: 'FOCUS — Spectral', colour: '#a78bfa' },
+  { id: 'modify', label: 'MODIFY — Time', colour: '#3b82f6' },
+  { id: 'distort', label: 'DISTORT — Waveset', colour: '#f59e0b' },
+  { id: 'grain', label: 'GRAIN — Granular', colour: '#ec4899' },
+  { id: 'extend', label: 'EXTEND — Time-stretch', colour: '#f97316' },
+  { id: 'mix', label: 'MIX — Combine', colour: '#22c55e' },
 ]
 
 export const CDP_COMMANDS = [
@@ -184,7 +184,7 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cspecfoc.htm',
     params: [
       {
-        id: 'time',     label: 'Freeze Time (s)', type: 'number',
+        id: 'time', label: 'Freeze Time (s)', type: 'number',
         default: 0.5, min: 0, max: 9999,
         help: 'Moment to freeze. 0.2 = bright attack, 0.8 = body of tone.'
       },
@@ -296,14 +296,14 @@ export const CDP_COMMANDS = [
     multichannel: false,
     docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#BRASSAGE',
     params: [
-      { id: 'velocity',   label: 'Velocity (inverse stretch)', type: 'number', default: 1.0,  min: 0,   max: 20,   help: 'Speed through source. 0.5 = stretch to 2×, 2.0 = compress to half. 0 = infinite stretch.' },
-      { id: 'density',    label: 'Density (grain overlap)',    type: 'number', default: 1.0,  min: 0.01, max: 2,   help: 'Grain overlap. <1 = gaps, 1 = normal, >1 = dense. 0.01 values get unpredictable.' },
-      { id: 'grainsize',  label: 'Grain Size (ms)',            type: 'number', default: 50,   min: 10,  max: 1000, help: 'Grain length in ms. 20–80ms = shimmer, 200–500ms = audible fragments.' },
-      { id: 'pitchshift', label: 'Pitch Shift (semitones)',    type: 'number', default: 0.0,  min: -24, max: 24,   help: 'Transposition in semitones (±). 0 = no pitch change.' },
-      { id: 'amp',        label: 'Amplitude (0–1)',            type: 'number', default: 1.0,  min: 0,   max: 1,    help: 'Grain loudness. 1.0 = unchanged.' },
-      { id: 'space',      label: 'Stereo Position (0–1)',      type: 'number', default: 0.5,  min: 0,   max: 1,    help: '0 = hard left, 0.5 = centre, 1 = hard right.' },
-      { id: 'bsplice',    label: 'Start Splice (ms)',          type: 'number', default: 5,    min: 1,   max: 100,  help: 'Fade-in of each grain in ms. Prevents clicks.' },
-      { id: 'esplice',    label: 'End Splice (ms)',            type: 'number', default: 5,    min: 1,   max: 100,  help: 'Fade-out of each grain in ms. Prevents clicks.' },
+      { id: 'velocity', label: 'Velocity (inverse stretch)', type: 'number', default: 1.0, min: 0, max: 20, help: 'Speed through source. 0.5 = stretch to 2×, 2.0 = compress to half. 0 = infinite stretch.' },
+      { id: 'density', label: 'Density (grain overlap)', type: 'number', default: 1.0, min: 0.01, max: 2, help: 'Grain overlap. <1 = gaps, 1 = normal, >1 = dense. 0.01 values get unpredictable.' },
+      { id: 'grainsize', label: 'Grain Size (ms)', type: 'number', default: 50, min: 10, max: 1000, help: 'Grain length in ms. 20–80ms = shimmer, 200–500ms = audible fragments.' },
+      { id: 'pitchshift', label: 'Pitch Shift (semitones)', type: 'number', default: 0.0, min: -24, max: 24, help: 'Transposition in semitones (±). 0 = no pitch change.' },
+      { id: 'amp', label: 'Amplitude (0–1)', type: 'number', default: 1.0, min: 0, max: 1, help: 'Grain loudness. 1.0 = unchanged.' },
+      { id: 'space', label: 'Stereo Position (0–1)', type: 'number', default: 0.5, min: 0, max: 1, help: '0 = hard left, 0.5 = centre, 1 = hard right.' },
+      { id: 'bsplice', label: 'Start Splice (ms)', type: 'number', default: 5, min: 1, max: 100, help: 'Fade-in of each grain in ms. Prevents clicks.' },
+      { id: 'esplice', label: 'End Splice (ms)', type: 'number', default: 5, min: 1, max: 100, help: 'Fade-out of each grain in ms. Prevents clicks.' },
     ],
     flags: [],
   },
@@ -383,26 +383,182 @@ export const CDP_COMMANDS = [
     flags: [],
   },
 
-  // DISTORT SHUFFLE — shuffle wavecycle order
-  // Correct syntax: distort shuffle infile outfile domain-image [-ccyclecnt]
+  // DISTORT MULTIPLY — waveset multiplication
+  // Correct syntax: distort multiply infile.wav outfile.wav N
   {
-    id: 'distort_shuffle',
+    id: 'distort_multiply',
     program: 'distort',
-    mode: 'shuffle',
+    mode: 'multiply',
     modeNum: null,
-    label: 'Distort Shuffle',
+    label: 'Distort Multiply',
     category: 'distort',
-    description: 'Shuffle the order of wavecycles within groups. Creates granular, scrambled texture. MONO only.',
+    description: 'Multiply waveform by itself N times. Creates heavy distortion. MONO only.',
     inputExt: ['.wav'],
     outputExt: '.wav',
     multichannel: false,
-    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#SHUFFLE',
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#MULTIPLY',
     params: [
-      { id: 'domainImage', label: 'Pattern', type: 'select', default: 'abcd-dcba', options: ['abcd-dcba', 'abcd-bacd', 'abcd-cdba', 'abcd-dacb', 'abc-cba', 'abcde-edcba', 'abcde-badce', 'abcd-abdc'], help: 'Domain-image pattern for shuffling wavecycles. Same length = no stretch, longer image = time-stretch.' },
+      {
+        id: 'N', label: 'Multiplier (N)', type: 'number',
+        default: 2, min: 1, max: 10,
+        help: 'Number of times to multiply. 2 = square of input, 3 = cube, etc.'
+      }
     ],
-    flags: [
-      { id: 'c', label: 'Cycles per Group', type: 'number', default: 4, min: 1, max: 200, help: 'Number of wavecycles each character represents. Larger = coarser shuffling.' },
+    flags: [],
+  },
+
+  // DISTORT HARMONIC — waveset harmonic distortion
+  // Correct syntax: distort harmonic infile.wav outfile.wav N
+  {
+    id: 'distort_harmonic',
+    program: 'distort',
+    mode: 'harmonic',
+    modeNum: null,
+    label: 'Distort Harmonic',
+    category: 'distort',
+    description: 'Harmonic distortion by adding harmonics of the fundamental. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#HARMONIC',
+    params: [
+      {
+        id: 'N', label: 'Harmonic Level (N)', type: 'number',
+        default: 2, min: 1, max: 10,
+        help: 'Amount of harmonic content added.'
+      }
     ],
+    flags: [],
+  },
+
+  // DISTORT INTERPOLATE — waveset interpolation
+  // Correct syntax: distort interpolate infile.wav outfile.wav N
+  {
+    id: 'distort_interpolate',
+    program: 'distort',
+    mode: 'interpolate',
+    modeNum: null,
+    label: 'Distort Interpolate',
+    category: 'distort',
+    description: 'Interpolates between wave cycles. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#INTERPOLATE',
+    params: [
+      {
+        id: 'N', label: 'Interpolation (N)', type: 'number',
+        default: 2, min: 1, max: 10,
+        help: 'Interpolation factor.'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT PITCH — waveset pitch shift
+  // Correct specification: distort pitch infile.wav outfile.wav semitones
+  {
+    id: 'distort_pitch',
+    program: 'distort',
+    mode: 'pitch',
+    modeNum: null,
+    label: 'Distort Pitch',
+    category: 'distort',
+    description: 'Pitch shift via waveset manipulation. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#PITCH',
+    params: [
+      {
+        id: 'semitones', label: 'Semitones', type: 'number',
+        default: 0, min: -12, max: 12,
+        help: 'Shift pitch by semitones.'
+      }
+    ],
+    flags: [],
+  },
+
+  // SCRAMBLE 1 — simple scrambler
+  // Correct syntax: scramble 1 infile.wav outfile.wav dur seed
+  {
+    id: 'scramble_1',
+    program: 'scramble',
+    mode: '1',
+    modeNum: null,
+    label: 'Scramble (Mode 1)',
+    category: 'distort',
+    description: 'Scrambles audio based on duration and seed. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#SCRAMBLE',
+    params: [
+      {
+        id: 'dur', label: 'Duration (s)', type: 'number',
+        default: 1.0, min: 0.1, max: 60,
+        help: 'Duration of the scramble effect.'
+    },
+      {
+        id: 'seed', label: 'Seed', type: 'number',
+        default: 0, min: 0, max: 999999,
+        help: 'Random seed.'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT OMIT — omit parts of the waveform
+  // Correct syntax: distort omit infile.wav outfile.wav A B
+  {
+    id: 'distort_omit',
+    program: 'distort',
+    mode: 'omit',
+    modeNum: null,
+    label: 'Distort Omit',
+    category: 'distort',
+    description: 'Omits parts of the waveform between A and B. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#OMIT',
+    params: [
+      {
+        id: 'A', label: 'Start Point (A)', type: 'number',
+        default: 0.1, min: 0, max: 1,
+        help: 'Start of omission range (fraction of cycle).'
+      },
+      {
+        id: 'B', label: 'End Point (B)', type: 'number',
+        default: 0.9, min: 0, max: 1,
+        help: 'End of omission range (fraction of cycle).'
+      }
+    ],
+    flags: [],
+  },
+
+  // DISTORT DELETE — delete cycles after N cycles
+  // Correct syntax: distort delete infile.wav outfile.wav cyclecnt
+  {
+    id: 'distort_delete',
+    program: 'distort',
+    mode: 'delete',
+    modeNum: null,
+    label: 'Distort Delete',
+    category: 'distort',
+    description: 'Deletes waveset cycles after N cycles. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#DELETE',
+    params: [
+      {
+        id: 'cyclecnt', label: 'Cycle Count', type: 'number',
+        default: 10, min: 1, max: 1000,
+        help: 'Number of cycles to keep before deleting.'
+      }
+    ],
+    flags: [],
   },
 
   // ══ MIX — Combine ════════════════════════════════════════════════
@@ -818,9 +974,9 @@ export function getMultichannelCommands() {
 }
 
 export const CHANNEL_FORMATS = {
-  'mono':   { label: 'Mono',        channels: 1,  colour: '#64748b' },
-  'stereo': { label: 'Stereo',      channels: 2,  colour: '#3b82f6' },
-  '4ch':    { label: '4ch (FOA)',   channels: 4,  colour: '#8b5cf6', ambisonic: true, order: 1 },
-  '9ch':    { label: '9ch (HOA2)', channels: 9,  colour: '#ec4899', ambisonic: true, order: 2 },
-  '16ch':   { label: '16ch (HOA3)',channels: 16, colour: '#f59e0b', ambisonic: true, order: 3 },
+  'mono': { label: 'Mono', channels: 1, colour: '#64748b' },
+  'stereo': { label: 'Stereo', channels: 2, colour: '#3b82f6' },
+  '4ch': { label: '4ch (FOA)', channels: 4, colour: '#8b5cf6', ambisonic: true, order: 1 },
+  '9ch': { label: '9ch (HOA2)', channels: 9, colour: '#ec4899', ambisonic: true, order: 2 },
+  '16ch': { label: '16ch (HOA3)', channels: 16, colour: '#f59e0b', ambisonic: true, order: 3 },
 }

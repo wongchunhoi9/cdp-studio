@@ -26,10 +26,10 @@ export default function TerminalLog() {
   }, [entries, collapsed])
 
   const typeColour = {
-    command: '#7dd3fc',
+    command: 'var(--accent-text)',
     success: '#4ade80',
     error:   '#f87171',
-    info:    '#94a3b8',
+    info:    'var(--text-normal)',
     warn:    '#fbbf24',
   }
 
@@ -55,8 +55,8 @@ export default function TerminalLog() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
-      background: '#060d1a',
-      borderTop: '1px solid #1e293b',
+      background: 'var(--terminal-bg)',
+      borderTop: '1px solid var(--border-dim)',
       height: collapsed ? 32 : 160,
       transition: 'height 0.2s',
       flexShrink: 0,
@@ -65,16 +65,16 @@ export default function TerminalLog() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '0 12px', height: 32,
-        borderBottom: collapsed ? 'none' : '1px solid #1e293b',
+        borderBottom: collapsed ? 'none' : '1px solid var(--border-dim)',
         cursor: 'pointer', flexShrink: 0,
       }}
         onClick={() => setCollapsed(c => !c)}
       >
-        <span style={{ fontSize: '0.7em', color: '#475569' }}>
+        <span style={{ fontSize: '0.7em', color: 'var(--text-muted)' }}>
           {collapsed ? '▶' : '▼'}
         </span>
         <span style={{
-          fontSize: '0.72em', fontWeight: 600, color: '#64748b',
+          fontSize: '0.72em', fontWeight: 600, color: 'var(--text-normal)',
           textTransform: 'uppercase', letterSpacing: '0.06em',
         }}>
           Terminal Log
@@ -84,7 +84,7 @@ export default function TerminalLog() {
           <button
             onClick={e => { e.stopPropagation(); copyAll() }}
             style={{
-              background: 'none', border: 'none', color: '#475569',
+              background: 'none', border: 'none', color: 'var(--text-muted)',
               cursor: 'pointer', fontSize: '0.7em', padding: '2px 6px',
             }}
           >
@@ -107,14 +107,14 @@ export default function TerminalLog() {
             <div key={i} style={{
               display: 'flex', gap: 8, alignItems: 'flex-start',
               padding: '2px 0',
-              borderBottom: '1px solid #0d1520',
+              borderBottom: '1px solid var(--border-dim)',
             }}>
-              <span style={{ fontSize: '0.65em', color: '#334155', flexShrink: 0, marginTop: 1 }}>
+              <span style={{ fontSize: '0.65em', color: 'var(--text-muted)', flexShrink: 0, marginTop: 1 }}>
                 {formatTime(entry.timestamp)}
               </span>
               <span style={{
                 fontSize: '0.72em',
-                color: typeColour[entry.type] || '#94a3b8',
+                color: typeColour[entry.type] || 'var(--text-normal)',
                 wordBreak: 'break-all', lineHeight: 1.5,
               }}>
                 {typePrefix[entry.type] || ''}{entry.text}
@@ -123,7 +123,7 @@ export default function TerminalLog() {
                 <button
                   onClick={() => navigator.clipboard.writeText(entry.text)}
                   style={{
-                    background: 'none', border: 'none', color: '#334155',
+                    background: 'none', border: 'none', color: 'var(--text-muted)',
                     cursor: 'pointer', fontSize: '0.65em', padding: '0 4px',
                     flexShrink: 0, marginLeft: 'auto',
                   }}

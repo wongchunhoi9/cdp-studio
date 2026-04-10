@@ -1,0 +1,45 @@
+:root {
+  --app-bg: #100f0f;       /* flexoki bg */
+  --panel-bg: #1c1b1a;     /* flexoki bg-2 */
+  --border-dim: #282726;   /* flexoki ui */
+  --border-light: #343331; /* flexoki ui-2 */
+  --button-hover: #403e3c; /* flexoki ui-3 */
+  --text-muted: #575653;   /* flexoki tx-3 */
+  --text-normal: #878580;  /* flexoki tx-2 */
+  --text-bright: #cecdc3;  /* flexoki tx */
+  --accent: #205ea6;       /* flexoki blue-600 */
+  --accent-hover: #4385be; /* flexoki blue-400 */
+  --accent-text: #7dd3fc;  /* bright cyan-ish for some text */
+  --accent-bg: #1e3a5f;    /* dark blue bg for some selection */
+  --nodegraph-bg: #100f0f;
+  --terminal-bg: #060d1a;
+}
+
+:root[data-theme='light'] {
+  --app-bg: #fffcf0;       /* flexoki paper */
+  --panel-bg: #f2f0e5;     /* flexoki bg-2 */
+  --border-dim: #e6e4d9;   /* flexoki ui */
+  --border-light: #dad8ce; /* flexoki ui-2 */
+  --button-hover: #cecdc3; /* flexoki ui-3 */
+  --text-muted: #b7b5ac;   /* flexoki tx-3 */
+  --text-normal: #878580;  /* flexoki tx-2 */
+  --text-bright: #100f0f;  /* flexoki px/black */
+  --accent: #205ea6;       /* flexoki blue-600 */
+  --accent-hover: #4385be; /* flexoki blue-400 */
+  --accent-text: #205ea6;  
+  --accent-bg: #dad8ce;    
+  --nodegraph-bg: #fffcf0; /* paper/lighter as requested */
+  --terminal-bg: #dad8ce;  /* base-150 */
+}
+
+/* Ensure global box-sizing and basic resets since inline styles assume typical defaults in cdp-studio */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--app-bg);
+  color: var(--text-bright);
+}
