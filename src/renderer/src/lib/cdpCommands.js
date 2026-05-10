@@ -23,6 +23,7 @@ export const CDP_CATEGORIES = [
   { id: 'grain', label: 'GRAIN — Granular', colour: '#ec4899' },
   { id: 'extend', label: 'EXTEND — Time-stretch', colour: '#f97316' },
   { id: 'mix', label: 'MIX — Combine', colour: '#22c55e' },
+  { id: 'filter', label: 'FILTER', colour: '#d47500ff' },
 ]
 
 export const CDP_COMMANDS = [
@@ -197,6 +198,50 @@ export const CDP_COMMANDS = [
     flags: [],
   },
 
+  // ══ FILTER — Bank/Frequency filtering ══════════════════════════
+  // Doc: https://www.composmentsdesktop.com/docs/html/cgrofilt.htm
+  // Command: filter bank [1-3] infile outfile Q gain lofrq hifrq [-sscat] [-d]
+  {
+    id: 'filter_bank',
+    program: 'filter',
+    mode: 'bank',
+    modeNum: 'param:mode', // Fetch mode number from the 'mode' parameter select box
+    label: 'Filter Bank (Modes 1-3)',
+    category: 'filter',
+    description: 'Apply a frequency bandpass filter using bank modes 1, 2, or 3. Mode 1 = fixed, 2 = sweeping, 3 = variable.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrofilt.htm#BANK',
+    params: [
+      {
+        id: 'mode', label: 'Mode', type: 'select', default: 1,
+        options: [1, 2, 3],
+        help: '1 = fixed band, 2 = sweeping band, 3 = variable band.'
+      },
+      {
+        id: 'Q', label: 'Q', type: 'number', default: 1.0, min: 0.1, max: 10000,
+        help: 'Bandwidth sharpness. Higher = narrower.'
+      },
+      {
+        id: 'gain', label: 'Gain (dB)', type: 'number', default: 0.001, min: 0.001, max: 10000,
+        help: 'Gain applied to the band.'
+      },
+      {
+        id: 'lofrq', label: 'Low Freq (Hz)', type: 'number', default: 100, min: 1, max: 20000,
+        help: 'Lower boundary of the filter band.'
+      },
+      {
+        id: 'hifrq', label: 'High Freq (Hz)', type: 'number', default: 5000, min: 1, max: 20000,
+        help: 'Upper boundary of the filter band.'
+      }
+    ],
+    flags: [
+      { id: 's', label: 'SSCAT', type: 'number', default: 0, min: 0, max: 1, step: 0.01, help: 'SSCAT value (0 to 1). Only used when sscat mode is active.' },
+      { id: 'd', label: 'Debug', type: 'boolean', default: false, help: 'Enable debug output to terminal.' },
+    ],
+  },
+
   // ══ MODIFY ════════════════════════════════════════════════════════
   // Doc: https://www.composersdesktop.com/docs/html/cgromody.htm
 
@@ -312,7 +357,7 @@ export const CDP_COMMANDS = [
   // Doc: https://www.composersdesktop.com/docs/html/cdistort.htm
   // All DISTORT processes work on MONO .wav files only.
 
-  // Correct syntax: distort average infile.wav outfile.wav cyclecnt
+  // Correct syntax: distort average infile.wav outfile.wav cyclecnt [-mmaxwavelen] [-sskipcycles]
   {
     id: 'distort_average',
     program: 'distort',
@@ -332,7 +377,10 @@ export const CDP_COMMANDS = [
         help: 'Wavecycles to average. Range >1. Values <10 retain original character, ~100 creates sample-hold effect.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 'm', label: 'Max Wavelength (s)', type: 'number', default: 0.5, min: 0.01, max: 10, help: 'Maximum permissible wavelength in seconds. Default: 0.50' },
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
   },
 
   // DISTORT REVERSE — waveset cycle-reversal (NOT a simple audio reverse)
@@ -360,7 +408,7 @@ export const CDP_COMMANDS = [
   },
 
   // DISTORT REPEAT — timestretch by repeating wavecycles
-  // Correct syntax: distort repeat infile.wav outfile.wav cyclecnt
+  // Correct syntax: distort repeat infile.wav outfile.wav multiplier [-ccyclecnt] [-sskipcycles]
   {
     id: 'distort_repeat',
     program: 'distort',
@@ -375,16 +423,19 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#REPEAT',
     params: [
       {
-        id: 'cyclecnt', label: 'Repeat Count', type: 'number',
+        id: 'multiplier', label: 'Multiplier', type: 'number',
         default: 4, min: 1, max: 100,
-        help: 'How many times each wavecycle is repeated. Higher = longer and more distorted.'
+        help: 'Number of times each wavecycle (or group) is repeated.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 'c', label: 'Cycle Group Size', type: 'number', default: 1, min: 1, max: 1024, help: 'Size of wavecycle groups to be copied. Default: 1.' },
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
   },
 
   // DISTORT MULTIPLY — waveset multiplication
-  // Correct syntax: distort multiply infile.wav outfile.wav N
+  // Correct syntax: distort multiply infile.wav outfile.wav N [-s]
   {
     id: 'distort_multiply',
     program: 'distort',
@@ -400,15 +451,16 @@ export const CDP_COMMANDS = [
     params: [
       {
         id: 'N', label: 'Multiplier (N)', type: 'number',
-        default: 2, min: 1, max: 10,
+        default: 2, min: 2, max: 16,
         help: 'Number of times to multiply. 2 = square of input, 3 = cube, etc.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 's', label: 'Smooth', type: 'boolean', default: false, help: 'Enable smoothing.' },
+    ],
   },
 
-  // DISTORT HARMONIC — waveset harmonic distortion
-  // Correct syntax: distort harmonic infile.wav outfile.wav N
+  // Correct syntax: distort harmonic infile.wav outfile.wav harmonics-file [-ppre_attenuation]
   {
     id: 'distort_harmonic',
     program: 'distort',
@@ -423,16 +475,18 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#HARMONIC',
     params: [
       {
-        id: 'N', label: 'Harmonic Level (N)', type: 'number',
-        default: 2, min: 1, max: 10,
-        help: 'Amount of harmonic content added.'
+        id: 'harmonics', label: 'Harmonics Profile', type: 'number',
+        default: 1, min: 1, max: 100,
+        supportsBreakpoint: true,
+        help: 'Harmonic profile (harmonic_number amplitude pairs). Breakpoint curve: X = harmonic number, Y = amplitude.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 'p', label: 'Pre-attenuation', type: 'number', default: 0, min: 0, max: 1, help: 'Scale input volume before processing (0-1).' },
+    ],
   },
 
-  // DISTORT INTERPOLATE — waveset interpolation
-  // Correct syntax: distort interpolate infile.wav outfile.wav N
+  // Correct syntax: distort interpolate infile.wav outfile.wav multiplier [-sskipcycles]
   {
     id: 'distort_interpolate',
     program: 'distort',
@@ -447,16 +501,17 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#INTERPOLATE',
     params: [
       {
-        id: 'N', label: 'Interpolation (N)', type: 'number',
-        default: 2, min: 1, max: 10,
-        help: 'Interpolation factor.'
+        id: 'multiplier', label: 'Multiplier', type: 'number',
+        default: 2, min: 1, max: 100,
+        help: 'Number of times each wavecycle repeats.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
   },
 
-  // DISTORT PITCH — waveset pitch shift
-  // Correct specification: distort pitch infile.wav outfile.wav semitones
+  // Correct syntax: distort pitch infile.wav outfile.wav octvary [-ccyclelen] [-sskipcycles]
   {
     id: 'distort_pitch',
     program: 'distort',
@@ -471,24 +526,26 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#PITCH',
     params: [
       {
-        id: 'semitones', label: 'Semitones', type: 'number',
-        default: 0, min: -12, max: 12,
-        help: 'Shift pitch by semitones.'
+        id: 'octvary', label: 'Octave Variation', type: 'number',
+        default: 0.5, min: 0.01, max: 4,
+        help: 'Maximum possible transposition up or down (fractions of octaves).'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 'c', label: 'Cycle Interval', type: 'number', default: 1, min: 1, max: 1024, help: 'Max cycles between new transposition values.' },
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
   },
 
-  // SCRAMBLE 1 — simple scrambler
-  // Correct syntax: scramble 1 infile.wav outfile.wav dur seed
+  // Correct syntax: scramble scramble mode infile outfile dur seed [-ccnt] [-ttrns] [-aatten]
   {
     id: 'scramble_1',
     program: 'scramble',
-    mode: '1',
-    modeNum: null,
+    mode: 'scramble',
+    modeNum: 1,
     label: 'Scramble (Mode 1)',
     category: 'distort',
-    description: 'Scrambles audio based on duration and seed. MONO only.',
+    description: 'Scrambles audio based on duration and seed. MONO only. Mode 1: simple scramble.',
     inputExt: ['.wav'],
     outputExt: '.wav',
     multichannel: false,
@@ -498,17 +555,20 @@ export const CDP_COMMANDS = [
         id: 'dur', label: 'Duration (s)', type: 'number',
         default: 1.0, min: 0.1, max: 60,
         help: 'Duration of the scramble effect.'
-    },
+      },
       {
         id: 'seed', label: 'Seed', type: 'number',
-        default: 0, min: 0, max: 999999,
-        help: 'Random seed.'
+        default: 123, min: 0, max: 999999,
+        help: 'Random seed for reproducible scrambling.'
       }
     ],
-    flags: [],
+    flags: [
+      { id: 'c', label: 'Group Size', type: 'number', default: 1, min: 1, max: 100, help: 'Number of wavesets in groups.' },
+      { id: 't', label: 'Transposition (st)', type: 'number', default: 0, min: 0, max: 24, help: 'Random transposition range in semitones.' },
+      { id: 'a', label: 'Attenuation (dB)', type: 'number', default: 0, min: 0, max: 96, help: 'Random attenuation range in dB.' },
+    ],
   },
 
-  // DISTORT OMIT — omit parts of the waveform
   // Correct syntax: distort omit infile.wav outfile.wav A B
   {
     id: 'distort_omit',
@@ -524,38 +584,100 @@ export const CDP_COMMANDS = [
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#OMIT',
     params: [
       {
-        id: 'A', label: 'Start Point (A)', type: 'number',
-        default: 0.1, min: 0, max: 1,
-        help: 'Start of omission range (fraction of cycle).'
+        id: 'A', label: 'Omit Count (A)', type: 'number',
+        default: 1, min: 1, max: 1000,
+        help: 'Number of wavecycles to omit.'
       },
       {
-        id: 'B', label: 'End Point (B)', type: 'number',
-        default: 0.9, min: 0, max: 1,
-        help: 'End of omission range (fraction of cycle).'
+        id: 'B', label: 'Group Size (B)', type: 'number',
+        default: 10, min: 1, max: 1000,
+        help: 'Size of group of wavecycles out of which to omit A.'
       }
     ],
     flags: [],
   },
 
-  // DISTORT DELETE — delete cycles after N cycles
-  // Correct syntax: distort delete infile.wav outfile.wav cyclecnt
+  // Correct syntax: distort delete mode infile.wav outfile.wav cyclecnt [-sskipcycles]
   {
     id: 'distort_delete',
     program: 'distort',
     mode: 'delete',
-    modeNum: null,
+    modeNum: 'param:mode',
     label: 'Distort Delete',
     category: 'distort',
-    description: 'Deletes waveset cycles after N cycles. MONO only.',
+    description: 'Deletes waveset cycles using different selection modes. MONO only.',
     inputExt: ['.wav'],
     outputExt: '.wav',
     multichannel: false,
     docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#DELETE',
     params: [
       {
+        id: 'mode', label: 'Mode', type: 'select', default: 1,
+        options: [1, 2, 3],
+        help: '1 = average cycles, 2 = strongest, 3 = weakest.'
+      },
+      {
         id: 'cyclecnt', label: 'Cycle Count', type: 'number',
         default: 10, min: 1, max: 1000,
-        help: 'Number of cycles to keep before deleting.'
+        help: 'Number of cycles to evaluate in groups.'
+      }
+    ],
+    flags: [
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
+  },
+
+  // Correct syntax: distort shuffle infile.wav outfile.wav domain-image [-ccyclecnt] [-sskipcycles]
+  {
+    id: 'distort_shuffle',
+    program: 'distort',
+    mode: 'shuffle',
+    modeNum: null,
+    label: 'Distort Shuffle',
+    category: 'distort',
+    description: 'Scramble cycles based on a "domain image" map. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#SHUFFLE',
+    params: [
+      {
+        id: 'domain', label: 'Shuffle Map', type: 'number',
+        default: 0, min: 0, max: 1,
+        supportsBreakpoint: true,
+        help: 'Breakpoints defining the shuffle map (domain image).'
+      }
+    ],
+    flags: [
+      { id: 'c', label: 'Group Size', type: 'number', default: 1, min: 1, max: 100, help: 'Number of cycles in a group.' },
+      { id: 's', label: 'Skip Cycles', type: 'number', default: 0, min: 0, max: 1000000, help: 'Number of wavecycles to skip at start.' },
+    ],
+  },
+
+  // Correct syntax: distort reform mode infile.wav outfile.wav [exaggeration]
+  {
+    id: 'distort_reform',
+    program: 'distort',
+    mode: 'reform',
+    modeNum: 'param:mode',
+    label: 'Distort Reform',
+    category: 'distort',
+    description: 'Reshape wavecycles into basic waveforms. MONO only.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cdistort.htm#REFORM',
+    params: [
+      {
+        id: 'mode', label: 'Reform Mode', type: 'select', default: 1,
+        options: [1, 2, 3, 4, 5, 6, 7, 8],
+        help: '1:Fixed Square, 2:Square, 3:Fixed Triangle, 4:Triangle, 5:Inverted, 6:Click, 7:Sinusoid, 8:Exaggerate'
+      },
+      {
+        id: 'exaggeration', label: 'Exaggeration (Mode 8)', type: 'number',
+        default: 1.0, min: 0.1, max: 10,
+        showIf: { paramId: 'mode', value: 8 },
+        help: 'Only used for Mode 8 (Exaggerate Contour).'
       }
     ],
     flags: [],

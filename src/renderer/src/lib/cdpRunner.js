@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
  */
 export function buildArgs({ command, inputPath, input2Path, outputPath, paramValues }) {
   const args = []
+  let modeNumParamId = null
 
   // 1. Mode name (if present)
   if (command.mode) {
@@ -25,8 +26,15 @@ export function buildArgs({ command, inputPath, input2Path, outputPath, paramVal
   }
 
   // 2. Mode number (if present) — e.g. pvoc anal **1**, modify speed **1**, brassage **1**
+  // Special case: "param:id" means fetch the modeNum from a user-selectable parameter
   if (command.modeNum !== null && command.modeNum !== undefined) {
-    args.push(String(command.modeNum))
+    if (typeof command.modeNum === 'string' && command.modeNum.startsWith('param:')) {
+      modeNumParamId = command.modeNum.split(':')[1]
+      const val = paramValues[modeNumParamId] !== undefined ? paramValues[modeNumParamId] : 1
+      args.push(String(val))
+    } else {
+      args.push(String(command.modeNum))
+    }
   }
 
   // 3. Input file(s)
@@ -38,6 +46,15 @@ export function buildArgs({ command, inputPath, input2Path, outputPath, paramVal
 
   // 5. Positional parameters in declared order (or flag-style if flagPrefix is set)
   command.params.forEach(p => {
+    // Skip if this parameter was already used as the modeNum
+    if (p.id === modeNumParamId) return
+
+    // Skip if condition not met
+    if (p.showIf) {
+      const conditionVal = paramValues[p.showIf.paramId]
+      if (conditionVal !== p.showIf.value) return
+    }
+
     const val = paramValues[p.id] !== undefined ? paramValues[p.id] : p.default
     if (p.flagPrefix) {
       args.push(`${p.flagPrefix}${val}`)
@@ -46,18 +63,32 @@ export function buildArgs({ command, inputPath, input2Path, outputPath, paramVal
     }
   })
 
+
   // 6. Flag-style parameters — formatted as -{id}{value} (e.g. -c1024)
   // Only include flags when the user has changed them from their default value.
   if (command.flags) {
     command.flags.forEach(f => {
+      // Skip if condition not met (flags can also have conditions)
+      if (f.showIf) {
+        const conditionVal = paramValues[f.showIf.paramId]
+        if (conditionVal !== f.showIf.value) return
+      }
+
       const val = paramValues[f.id]
       if (val === undefined || val === f.default) return
-      args.push(`-${f.id}${val}`)
+
+      if (f.type === 'boolean') {
+        if (val) args.push(`-${f.id}`)
+      } else {
+        args.push(`-${f.id}${val}`)
+      }
     })
   }
 
+
   return args
 }
+
 
 /**
  * Run a single CDP process.

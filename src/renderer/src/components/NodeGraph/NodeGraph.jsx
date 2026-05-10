@@ -412,7 +412,15 @@ function ProcessNode({ data, id, selected }) {
             }}
           />
         )}
-        {param.type !== 'number' && !isBreakpoint && (
+        {param.type === 'boolean' && !isBreakpoint && (
+          <input type="checkbox"
+            className="nodrag"
+            checked={currentValue}
+            onChange={e => updateParam(param.id, e.target.checked)}
+            style={{ accentColor: colour, cursor: 'pointer' }}
+          />
+        )}
+        {param.type !== 'number' && param.type !== 'boolean' && param.type !== 'select' && !isBreakpoint && (
           <span style={{ fontSize: '0.67em', color: colour, fontFamily: 'monospace' }}>
             {currentValue}
           </span>
@@ -460,6 +468,7 @@ function ProcessNode({ data, id, selected }) {
         </select>
       )}
     </div>
+
   )}
 
   const statusColour = data.status === 'done' ? '#22c55e' : data.status === 'error' ? '#ef4444' : data.status === 'running' ? colour : '#334155'
@@ -489,8 +498,13 @@ function ProcessNode({ data, id, selected }) {
       </div>
 
       <div style={{ padding: '8px 10px' }}>
-        {command.params.map(renderParam)}
-        {command.flags?.map(renderParam)}
+        {command.params
+          .filter(p => !p.showIf || (data.paramValues?.[p.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === p.showIf.paramId)?.default) === p.showIf.value)
+          .map(renderParam)}
+        {command.flags
+          ?.filter(f => !f.showIf || (data.paramValues?.[f.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === f.showIf.paramId)?.default) === f.showIf.value)
+          .map(renderParam)}
+
 
         {/* Input file indicator */}
         {data.inputPath && (
@@ -600,17 +614,22 @@ function OutputNode({ data, id, selected }) {
           </div>
         )}
 
-        {/* THE key button — runs the entire chain */}
+        {/* THE key button — runs the entire chain or stops it */}
         <button
-          onClick={() => data.onRenderChain?.(id)}
-          disabled={data.chainRunning}
+          onClick={() => {
+            if (data.chainRunning) {
+              window.cdpStudio.stopCDP()
+            } else {
+              data.onRenderChain?.(id)
+            }
+          }}
           style={{
-            ...smallBtnStyle('#f59e0b'),
+            ...smallBtnStyle(data.chainRunning ? '#ef4444' : '#f59e0b'),
             width: '100%', padding: '6px 0',
             fontSize: '0.78em', fontWeight: 700,
-            opacity: data.chainRunning ? 0.6 : 1,
+            opacity: 1, // Full opacity so it looks clickable for stop
           }}>
-          {data.chainRunning ? '⟳ Running chain…' : '▶ Render Chain'}
+          {data.chainRunning ? '⏹ STOP rendering' : '▶ Render Chain'}
         </button>
 
         {data.filePath && (

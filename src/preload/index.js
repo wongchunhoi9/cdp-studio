@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('cdpStudio', {
 
   // ── CDP command runner ────────────────────────────────────────────
   runCDP: (params) => ipcRenderer.invoke('cdp:run', params),
+  stopCDP: () => ipcRenderer.invoke('cdp:stop'),
 
   // ── Audio ─────────────────────────────────────────────────────────
   getAudioInfo: (filePath) => ipcRenderer.invoke('audio:getInfo', filePath),

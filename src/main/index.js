@@ -8,6 +8,9 @@ import { randomUUID } from 'crypto'
 // ── Persistent store ────────────────────────────────────────────────
 const store = new Store()
 
+// ── Active process tracking (for STOP button) ──────────────────────
+let activeCDPProcess = null
+
 // ── CDP binary path (user configures on first run) ──────────────────
 // Common Mac install locations — cdpr8 is the current release
 const CDP_CANDIDATE_PATHS = [
@@ -133,14 +136,25 @@ ipcMain.handle('cdp:run', async (_, { program, args, outputPath, label }) => {
       timestamp: new Date().toISOString()
     })
 
-    execFile(executable, fullArgs, { timeout: 120000 }, (error, stdout, stderr) => {
+    const child = execFile(executable, fullArgs, { timeout: 120000 }, (error, stdout, stderr) => {
+      // Clear tracking if this is still the active process
+      if (activeCDPProcess === child) {
+        activeCDPProcess = null
+      }
+
       if (error) {
         mainWindow.webContents.send('terminal:append', {
           type: 'error',
-          text: stderr || error.message,
+          text: error.signal === 'SIGTERM' ? 'Process killed by user.' : (stderr || error.message),
           timestamp: new Date().toISOString()
         })
-        resolve({ success: false, error: error.message, stderr, command: commandString })
+        resolve({
+          success: false,
+          error: error.message,
+          stderr,
+          command: commandString,
+          wasKilled: error.signal === 'SIGTERM'
+        })
       } else {
         mainWindow.webContents.send('terminal:append', {
           type: 'success',
@@ -150,7 +164,20 @@ ipcMain.handle('cdp:run', async (_, { program, args, outputPath, label }) => {
         resolve({ success: true, stdout, stderr, command: commandString, outputPath })
       }
     })
+
+    // Store reference to allow killing it later
+    activeCDPProcess = child
   })
+})
+
+// ── Stop the currently running CDP command ───────────────────────────
+ipcMain.handle('cdp:stop', async () => {
+  if (activeCDPProcess) {
+    activeCDPProcess.kill('SIGTERM')
+    activeCDPProcess = null
+    return true
+  }
+  return false
 })
 
 // ── Get audio file info (channels, samplerate, duration) ────────────
