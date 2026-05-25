@@ -499,10 +499,16 @@ function ProcessNode({ data, id, selected }) {
 
       <div style={{ padding: '8px 10px' }}>
         {command.params
-          .filter(p => !p.showIf || (data.paramValues?.[p.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === p.showIf.paramId)?.default) === p.showIf.value)
+          .filter(p => !p.showIf || (
+            (p.showIf.valueNot === undefined || (data.paramValues?.[p.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === p.showIf.paramId)?.default) !== p.showIf.valueNot) &&
+            (p.showIf.value === undefined || (data.paramValues?.[p.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === p.showIf.paramId)?.default) === p.showIf.value)
+          ))
           .map(renderParam)}
         {command.flags
-          ?.filter(f => !f.showIf || (data.paramValues?.[f.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === f.showIf.paramId)?.default) === f.showIf.value)
+          ?.filter(f => !f.showIf || (
+            (f.showIf.valueNot === undefined || (data.paramValues?.[f.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === f.showIf.paramId)?.default) !== f.showIf.valueNot) &&
+            (f.showIf.value === undefined || (data.paramValues?.[f.showIf.paramId] ?? getCommandById(data.commandId).params.find(cp => cp.id === f.showIf.paramId)?.default) === f.showIf.value)
+          ))
           .map(renderParam)}
 
 

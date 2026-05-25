@@ -1056,29 +1056,256 @@ export const CDP_COMMANDS = [
     ],
   },
 
-  // MODIFY RADICAL 5 — Ring Modulation
-  // Correct syntax: modify radical 5 infile outfile modulating-frq
+    // MODIFY RADICAL 5 — Ring Modulation
+    // Correct syntax: modify radical 5 infile outfile modulating-frq
+    {
+     id: 'modify_radical_ringmod',
+     program: 'modify',
+     mode: 'radical',
+     modeNum: 5,
+     label: 'Ring Mod (Mode 5)',
+     category: 'modify',
+     description: 'Ring modulate: multiply audio by a sine wave at given frequency. Creates hollow, metallic sound. Mode 5.',
+     inputExt: ['.wav'],
+     outputExt: '.wav',
+     multichannel: false,
+     docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL',
+     params: [
+        {
+         id: 'modulatingFrq', label: 'Modulator Freq (Hz)', type: 'number',
+         default: 440, min: 0.01, max: 20000,
+         supportsBreakpoint: true,
+         help: 'Frequency of the modulating sine wave in Hz. Try: 50-200 (drone), 440-1000 (metallic), 2000+ (chipmunk).'
+        },
+      ],
+     flags: [],
+    },
+
+    // ══ SORTER — Sort / Reorder Elements ═══════════════════════════
+    // Doc: https://www.composersdesktop.com/docs/html/cgromody.htm#SORTER
+
+    // Correct syntax: sorter sorter <mode> infile outfile esiz [-ssmooth] [-oopch] [-ppch] [-mmeta] [-f]
+    {
+     id: 'sorter',
+     program: 'sorter',
+     mode: 'sorter',
+     modeNum: 'param:mode',
+     label: 'Sorter (Reorder Elements)',
+     category: 'modify',
+     description: 'Segment audio and reorder by loudness, speed, or randomly. MONO only.',
+     inputExt: ['.wav'],
+     outputExt: '.wav',
+     multichannel: false,
+     docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#SORTER',
+     params: [
+        {
+         id: 'mode', label: 'Sort Mode', type: 'select', default: 1,
+         options: [1, 2, 3, 4, 5],
+         help: '1=Crescendo (loudness ↑), 2=Decrescendo (loudness ↓), 3=Accelerando (speed ↑), 4=Ritardando (speed ↓), 5=Random'
+        },
+        {
+         id: 'esiz', label: 'Element Size (s)', type: 'number',
+         default: 0.1, min: 0, max: 60,
+         showIf: { paramId: 'mode', valueNot: 5 },
+         help: 'Segment length in seconds. 0 = use individual wavesets. Larger values create bigger chunks. Max = source duration.'
+        },
+        {
+         id: 'seed', label: 'Random Seed', type: 'number',
+         default: 0, min: 0, max: 256,
+         showIf: { paramId: 'mode', value: 5 },
+         help: 'Mode 5 only: 0 = different order each run, 1-256 = reproducible ordering.'
+        }
+      ],
+     flags: [
+        { id: 's', label: 'Smooth (splice ms)', type: 'number', default: 0, min: 0, max: 50, help: 'Fade splice between segments in ms. Ignored if element size is 0.' },
+        { id: 'o', label: 'Pitch Spacing (MIDI)', type: 'number', default: 0, min: 0, max: 128, help: 'Space elements by this many semitones apart. 0=ignore, 128=use median pitch with -f flag.' },
+        { id: 'p', label: 'Transpose To (MIDI)', type: 'number', default: 0, min: 0, max: 128, help: 'Re-pitch elements to this MIDI note. Requires -f flag. 0=ignore, 128=median pitch.' },
+        { id: 'm', label: 'Meta Group Size (s)', type: 'number', default: 0, min: 0, max: 60, help: 'Group elements in larger chunks while preserving pitch correlation. Requires -f and -p flags.' },
+        { id: 'f', label: 'Frequency Mode', type: 'boolean', default: false, help: 'Read element size as frequency (1/duration). Enables -p and -m flags.' }
+      ]
+    },
+
+  // ══ DVDWIND — DVD Fast-Wind Shortening ════════════════════════════
+  // Doc: https://composersdesktop.com/docs/html/cgroextd.htm#DVDWIND
+  // Correct syntax: dvdwind dvdwind infile outfile contraction clipsize
+
   {
-    id: 'modify_radical_ringmod',
-    program: 'modify',
-    mode: 'radical',
-    modeNum: 5,
-    label: 'Ring Mod (Mode 5)',
-    category: 'modify',
-    description: 'Ring modulate: multiply audio by a sine wave at given frequency. Creates hollow, metallic sound. Mode 5.',
+    id: 'extend_dvdwind',
+    program: 'dvdwind',
+    mode: 'dvdwind',
+    modeNum: null,
+    label: 'DVD Wind',
+    category: 'extend',
+    description: 'Shortens a sound by read-skip-read-skip, simulating DVD fast-forward. Each retained clip is clipsize ms long, separated by skipped sections.',
     inputExt: ['.wav'],
     outputExt: '.wav',
     multichannel: false,
-    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#RADICAL',
+    docUrl: 'https://composersdesktop.com/docs/html/cgroextd.htm#DVDWIND',
     params: [
       {
-        id: 'modulatingFrq', label: 'Modulator Freq (Hz)', type: 'number',
-        default: 440, min: 0.01, max: 20000,
-        supportsBreakpoint: true,
-        help: 'Frequency of the modulating sine wave in Hz. Try: 50-200 (drone), 440-1000 (metallic), 2000+ (chipmunk).'
+        id: 'contraction', label: 'Contraction (>1)', type: 'number',
+        default: 4, min: 1.01, max: 100,
+        help: 'Time-compression ratio, must be greater than 1. 2 = half length, 4 = quarter length, 10 = 10× shorter.'
+      },
+      {
+        id: 'clipsize', label: 'Clip Size (ms)', type: 'number',
+        default: 50, min: 1, max: 2000,
+        help: 'Duration of each retained audio clip in milliseconds. Smaller = more staccato fast-forward feel. Larger = more continuous.'
       },
     ],
     flags: [],
+  },
+
+  // ══ EXTEND SCRAMBLE — Scramble soundfile ════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgroextd.htm#SCRAMBLE
+  // Correct syntax: extend scramble 1 infile outfile minseglen maxseglen outdur [-w splen] [-s seed] [-b] [-e]
+  // Useful as a source generator for further processing — output can be fed into other EXTEND or MODIFY nodes.
+
+  {
+    id: 'extend_scramble_1',
+    program: 'extend',
+    mode: 'scramble',
+    modeNum: 1,
+    label: 'Scramble (Overlapping — Mode 1)',
+    category: 'extend',
+    description: 'Cut random overlapping chunks from source and splice them end-to-end. Sections may repeat or be entirely skipped. Useful as a source generator for further processing.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm#SCRAMBLE',
+    params: [
+      {
+        id: 'minseglen', label: 'Min Chunk (s)', type: 'number',
+        default: 0.1, min: 0.045, max: 60,
+        dependsOn: {
+          max: { type: 'inputDuration', fallback: 60 }
+        },
+        help: 'Minimum segment length in seconds (>= 0.045). Smaller = more fragmented, glitchy result. 0.1–0.5 = granular texture, 1.0+ = recognisable fragments.'
+      },
+      {
+        id: 'maxseglen', label: 'Max Chunk (s)', type: 'number',
+        default: 2.0, min: 0.045, max: 60,
+        dependsOn: {
+          max: { type: 'inputDuration', fallback: 60 }
+        },
+        constraints: [
+          { type: 'gtParam', param: 'minseglen' }
+        ],
+        help: 'Maximum segment length in seconds. Must be > Min Chunk. 0.5–2.0 = speech rhythm, 3.0+ = large structural reordering.'
+      },
+      {
+        id: 'outdur', label: 'Output Duration (s)', type: 'number',
+        default: 10, min: 0.1, max: 100,
+        help: 'Total output duration in seconds. Must exceed maxseglen. 10–30s = short textures, 30–100s = extended generative passages.'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice Length (ms)', type: 'number', default: 25, min: 0, max: 1000, help: 'Crossfade between adjacent chunks in ms. 0 = hard cuts (glitchy), 25 = smooth joins (default).' },
+      { id: 's', label: 'Seed', type: 'number', default: 0, min: 0, max: 999999, help: 'Non-zero for reproducible output. Same seed = identical scramble across runs. 0 = different each run.' },
+      { id: 'b', label: 'Force Start from Beginning', type: 'boolean', default: false, help: 'Force the first chunk of output to start at the beginning of the input file.' },
+      { id: 'e', label: 'Force End with Source End', type: 'boolean', default: false, help: 'Force the last chunk of output to end with the final samples of the input file.' },
+    ],
+  },
+
+  // Correct syntax: extend scramble 2 infile outfile seglen scatter outdur [-w splen] [-s seed] [-b] [-e]
+  {
+    id: 'extend_scramble_2',
+    program: 'extend',
+    mode: 'scramble',
+    modeNum: 2,
+    label: 'Scramble (Complete Rearrange — Mode 2)',
+    category: 'extend',
+    description: 'Cut entire source into random-length non-overlapping chunks and rearrange. Each pass uses all material exactly once. Repeat passes fill the output duration.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroextd.htm#SCRAMBLE',
+    params: [
+      {
+        id: 'seglen', label: 'Avg Chunk Size (s)', type: 'number',
+        default: 0.5, min: 0.045, max: 60,
+        dependsOn: {
+          max: { type: 'inputDuration', fallback: 60 }
+        },
+        help: 'Average segment length in seconds. Determines base chunk size for cutting the entire file. 0.1–0.3 = rapid permutating grains, 0.5–2.0 = shuffled words/phrases.'
+      },
+      {
+        id: 'scatter', label: 'Scatter Factor', type: 'number',
+        default: 3, min: 0, max: 10,
+        dependsOn: {
+          max: {
+            type: 'expression',
+            fn: (ctx) => {
+              const dur = ctx.inputDuration || 1
+              const seglen = ctx.paramValues?.seglen || 0.1
+              return Math.max(0, Math.floor(dur / seglen))
+            },
+            fallback: 10
+          }
+        },
+        help: 'Randomisation of chunk lengths. 0 = uniform chunks, higher = wildly varying lengths. Useful range: 1–5 for subtle variation, 6+ for extreme contrast.'
+      },
+      {
+        id: 'outdur', label: 'Output Duration (s)', type: 'number',
+        default: 10, min: 0.1, max: 100,
+        help: 'Total output duration. Process will repeat through source to fill this duration. 10–30s = focused, 30–100s = sprawling generative structure.'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice Length (ms)', type: 'number', default: 25, min: 0, max: 1000, help: 'Crossfade between adjacent chunks in ms. 0 = hard cuts (glitchy), 25 = smooth joins (default).' },
+      { id: 's', label: 'Seed', type: 'number', default: 0, min: 0, max: 999999, help: 'Non-zero for reproducible output. Same seed = identical shuffle across runs. 0 = different each run.' },
+      { id: 'b', label: 'Force Start from Beginning', type: 'boolean', default: false, help: 'Force the first chunk of output to start at the beginning of the input file.' },
+      { id: 'e', label: 'Force End with Source End', type: 'boolean', default: false, help: 'Force the last chunk of output to end with the final samples of the input file.' },
+    ],
+  },
+
+  // ══ SFECHO ECHO — Decaying Echo Repeats ═══════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgroextd.htm#ECHOES
+  // Correct syntax: sfecho echo infile outfile delay attenuation totaldur [-rrand] [-ccutoff]
+
+  {
+    id: 'extend_sfecho',
+    program: 'sfecho',
+    mode: 'echo',
+    modeNum: null,
+    label: 'Echo (SFECHO)',
+    category: 'extend',
+    description: 'Decaying echo: repeats the source at regular delay intervals, each repeat quieter than the last, until totaldur or cutoff level is reached.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://composersdesktop.com/docs/html/cgroextd.htm#ECHOES',
+    params: [
+      {
+        id: 'delay', label: 'Delay (s)', type: 'number',
+        default: 0.3, min: 0.01, max: 10,
+        supportsBreakpoint: true,
+        help: 'Time between echo repeats in seconds. Must be ≥ source duration. 0.1–0.3 = tight slap-back, 0.5–1.0 = distinct echo, 2+ = cavernous.'
+      },
+      {
+        id: 'attenuation', label: 'Attenuation (0–1)', type: 'number',
+        default: 0.6, min: 0.01, max: 0.99,
+        supportsBreakpoint: true,
+        help: 'Relative level of each successive echo (0–1). 0.9 = gentle fade, 0.5 = each echo is half the previous, 0.1 = sharp cut.'
+      },
+      {
+        id: 'totaldur', label: 'Total Duration (s)', type: 'number',
+        default: 10, min: 0.1, max: 3600,
+        help: 'Maximum output duration in seconds. Echo chain stops when this is reached or the cutoff dB level is hit.'
+      },
+    ],
+    flags: [
+      {
+        id: 'r', label: 'Randomise Delay', type: 'number',
+        default: 0, min: 0, max: 1,
+        help: 'Randomisation of echo timing (0–1). 0 = perfectly regular echoes, >0 = irregular / natural feel. Can be time-varying.'
+      },
+      {
+        id: 'c', label: 'Cutoff Level (dB)', type: 'number',
+        default: -96, min: -120, max: -6,
+        help: 'dB level at which decaying echoes are silenced. Default: -96 dB (near-silence). Raise e.g. to -40 to cut the tail short.'
+      },
+    ],
   },
 
 ]

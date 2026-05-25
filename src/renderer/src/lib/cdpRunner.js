@@ -52,7 +52,8 @@ export function buildArgs({ command, inputPath, input2Path, outputPath, paramVal
     // Skip if condition not met
     if (p.showIf) {
       const conditionVal = paramValues[p.showIf.paramId]
-      if (conditionVal !== p.showIf.value) return
+      if (p.showIf.valueNot !== undefined && conditionVal === p.showIf.valueNot) return
+      if (p.showIf.value !== undefined && conditionVal !== p.showIf.value) return
     }
 
     const val = paramValues[p.id] !== undefined ? paramValues[p.id] : p.default
@@ -71,7 +72,8 @@ export function buildArgs({ command, inputPath, input2Path, outputPath, paramVal
       // Skip if condition not met (flags can also have conditions)
       if (f.showIf) {
         const conditionVal = paramValues[f.showIf.paramId]
-        if (conditionVal !== f.showIf.value) return
+        if (f.showIf.valueNot !== undefined && conditionVal === f.showIf.valueNot) return
+        if (f.showIf.value !== undefined && conditionVal !== f.showIf.value) return
       }
 
       const val = paramValues[f.id]
