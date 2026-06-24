@@ -4,6 +4,7 @@ import ClipBin from './components/ClipBin/ClipBin.jsx'
 import TerminalLog from './components/TerminalLog/TerminalLog.jsx'
 import WaveformViewer from './components/WaveformViewer/WaveformViewer.jsx'
 import SettingsPanel from './components/SettingsPanel/SettingsPanel.jsx'
+import MixWindow from './components/MixWindow/MixWindow.jsx'
 
 // AI Sidebar — inline for Phase 1, uses Anthropic API
 const CDP_SYSTEM = `You are an expert on the Composers' Desktop Project (CDP) — a suite of ~500 command-line sound transformation tools. The user is a clarinetist learning CDP. Answer questions about any CDP command, give exact terminal syntax, explain parameters in musical terms, and suggest creative uses for clarinet sounds. Format with **bold** for key terms and \`code\` for commands. Be concise and practical.`
@@ -129,7 +130,7 @@ export default function App() {
   const [showAI, setShowAI] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [focusedCommand, setFocusedCommand] = useState(null)
-  const [activeTab, setActiveTab] = useState('graph') // 'graph' | 'viewer'
+  const [activeTab, setActiveTab] = useState('graph') // 'graph' | 'viewer' | 'mix'
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
 
   useEffect(() => {
@@ -158,7 +159,7 @@ export default function App() {
           return
         }
         e.preventDefault()
-        setActiveTab(prev => prev === 'graph' ? 'viewer' : 'graph')
+        setActiveTab(prev => prev === 'graph' ? 'viewer' : prev === 'viewer' ? 'mix' : 'graph')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -190,6 +191,7 @@ export default function App() {
           {[
             { id: 'graph',  label: '⬡ Node Graph' },
             { id: 'viewer', label: '〜 Waveform' },
+            { id: 'mix',    label: '⊕ Mix' },
           ].map(tab => (
             <button key={tab.id}
               onClick={() => handleTabChange(tab.id)}
@@ -267,6 +269,11 @@ export default function App() {
           {/* Node Graph — always mounted so patch state is never lost */}
           <div style={{ flex: 1, overflow: 'hidden', display: activeTab === 'graph' ? 'flex' : 'none', flexDirection: 'column' }}>
             <NodeGraph onAIHelp={handleAIHelp} />
+          </div>
+
+          {/* Mix Window — always mounted so state is never lost */}
+          <div style={{ flex: 1, overflow: 'hidden', display: activeTab === 'mix' ? 'flex' : 'none', flexDirection: 'column' }}>
+            <MixWindow />
           </div>
 
           {/* Waveform Viewer */}

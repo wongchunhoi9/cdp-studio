@@ -1,0 +1,252 @@
+{
+  "version": 1,
+  "app": "cdp-studio",
+  "title": "Topic II · Doc2-3 — Surface Texturing",
+  "description": "Surface alterations: Wavecycle Distortion (DISTORT), Random Chunks (EXTEND SCRAMBLE), and Chorusing (BLUR CHORUS, spectral). Note: TEXTURE-based \"shimmer\" belongs to Topic 5 and is not yet implemented.",
+  "nodes": [
+    {
+      "id": "s_frog",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 80
+      },
+      "data": {
+        "filePath": "bfrogcdt.wav",
+        "label": "bfrogcdt.wav"
+      }
+    },
+    {
+      "id": "p_warp",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 40
+      },
+      "data": {
+        "commandId": "distort_pitch",
+        "paramValues": {
+          "octvary": 0.33
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_warp",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 40
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_mul",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 160
+      },
+      "data": {
+        "commandId": "distort_multiply",
+        "paramValues": {
+          "N": 2
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_mul",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 160
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "s_capm",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 360
+      },
+      "data": {
+        "filePath": "capm.wav",
+        "label": "capm.wav",
+        "audioInfo": {
+          "channels": 1,
+          "sampleRate": 44100,
+          "duration": 8.18
+        }
+      }
+    },
+    {
+      "id": "p_scr",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 300
+      },
+      "data": {
+        "commandId": "extend_scramble_1",
+        "paramValues": {
+          "minseglen": 0.1,
+          "maxseglen": 0.2,
+          "outdur": 6
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_scr",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 300
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_anal",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 440
+      },
+      "data": {
+        "commandId": "pvoc_anal",
+        "paramValues": {
+          "c": 1024
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_cho",
+      "type": "process",
+      "position": {
+        "x": 580,
+        "y": 440
+      },
+      "data": {
+        "commandId": "blur_chorus",
+        "paramValues": {
+          "aspread": 100,
+          "fspread": 1.4
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_syn",
+      "type": "process",
+      "position": {
+        "x": 800,
+        "y": 440
+      },
+      "data": {
+        "commandId": "pvoc_synth",
+        "paramValues": {},
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_cho",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 1040,
+        "y": 440
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-s_frog-p_warp",
+      "source": "s_frog",
+      "target": "p_warp",
+      "deletable": true
+    },
+    {
+      "id": "e-p_warp-o_warp",
+      "source": "p_warp",
+      "target": "o_warp",
+      "deletable": true
+    },
+    {
+      "id": "e-s_frog-p_mul",
+      "source": "s_frog",
+      "target": "p_mul",
+      "deletable": true
+    },
+    {
+      "id": "e-p_mul-o_mul",
+      "source": "p_mul",
+      "target": "o_mul",
+      "deletable": true
+    },
+    {
+      "id": "e-s_capm-p_scr",
+      "source": "s_capm",
+      "target": "p_scr",
+      "deletable": true
+    },
+    {
+      "id": "e-p_scr-o_scr",
+      "source": "p_scr",
+      "target": "o_scr",
+      "deletable": true
+    },
+    {
+      "id": "e-s_capm-p_anal",
+      "source": "s_capm",
+      "target": "p_anal",
+      "deletable": true
+    },
+    {
+      "id": "e-p_anal-p_cho",
+      "source": "p_anal",
+      "target": "p_cho",
+      "deletable": true
+    },
+    {
+      "id": "e-p_cho-p_syn",
+      "source": "p_cho",
+      "target": "p_syn",
+      "deletable": true
+    },
+    {
+      "id": "e-p_syn-o_cho",
+      "source": "p_syn",
+      "target": "o_cho",
+      "deletable": true
+    }
+  ]
+}

@@ -25,11 +25,21 @@ contextBridge.exposeInMainWorld('cdpStudio', {
   // ── Sessions ──────────────────────────────────────────────────────
   saveSession: (name, data) => ipcRenderer.invoke('session:save', { name, data }),
   loadSession: () => ipcRenderer.invoke('session:load'),
+  listExamples: () => ipcRenderer.invoke('examples:list'),
+  loadExample: (name) => ipcRenderer.invoke('examples:load', name),
 
   // ── Settings ──────────────────────────────────────────────────────
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
   detectCDPPath: () => ipcRenderer.invoke('cdp:detectPath'),
+
+  // ── Sound info inspector (SNDINFO / DIRSF) ────────────────────────
+  sndinfoReport: (filePath) => ipcRenderer.invoke('sndinfo:report', filePath),
+  dirsfList: () => ipcRenderer.invoke('dirsf:list'),
+
+  // ── MIX window (SUBMIX) ───────────────────────────────────────────
+  mixRender: (items, outName, opts) => ipcRenderer.invoke('mix:render', { items, outName, opts }),
+  mixGetLevel: (items) => ipcRenderer.invoke('mix:getlevel', items),
 
   // ── Shell helpers ─────────────────────────────────────────────────
   showInFinder: (path) => ipcRenderer.invoke('shell:showInFinder', path),

@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "app": "cdp-studio",
+  "title": "Topic I · Doc1-1 — Manipulating Sound",
+  "description": "Time-varying pitch transposition (MODIFY SPEED, semitones via breakpoint) and wavecycle PITCHWARP (DISTORT PITCH), as in Worksheet 1. Render each output to hear a variation of capm.wav.",
+  "nodes": [
+    {
+      "id": "s",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 240
+      },
+      "data": {
+        "filePath": "capm.wav",
+        "label": "capm.wav",
+        "audioInfo": {
+          "channels": 1,
+          "sampleRate": 44100,
+          "duration": 8.18
+        }
+      }
+    },
+    {
+      "id": "p_up",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 60
+      },
+      "data": {
+        "commandId": "modify_speed_2",
+        "paramValues": {
+          "semitoneTranspos": "capm-transpose-up.brk"
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_up",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 640,
+        "y": 60
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_both",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 200
+      },
+      "data": {
+        "commandId": "modify_speed_2",
+        "paramValues": {
+          "semitoneTranspos": "capm-transpose-both.brk"
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_both",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 640,
+        "y": 200
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_warp",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 340
+      },
+      "data": {
+        "commandId": "distort_pitch",
+        "paramValues": {
+          "octvary": "capm-pitchwarp.brk"
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_warp",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 640,
+        "y": 340
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_fix",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 480
+      },
+      "data": {
+        "commandId": "distort_pitch",
+        "paramValues": {
+          "octvary": 0.33
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_fix",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 640,
+        "y": 480
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-s-p_up",
+      "source": "s",
+      "target": "p_up",
+      "deletable": true
+    },
+    {
+      "id": "e-p_up-o_up",
+      "source": "p_up",
+      "target": "o_up",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_both",
+      "source": "s",
+      "target": "p_both",
+      "deletable": true
+    },
+    {
+      "id": "e-p_both-o_both",
+      "source": "p_both",
+      "target": "o_both",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_warp",
+      "source": "s",
+      "target": "p_warp",
+      "deletable": true
+    },
+    {
+      "id": "e-p_warp-o_warp",
+      "source": "p_warp",
+      "target": "o_warp",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_fix",
+      "source": "s",
+      "target": "p_fix",
+      "deletable": true
+    },
+    {
+      "id": "e-p_fix-o_fix",
+      "source": "p_fix",
+      "target": "o_fix",
+      "deletable": true
+    }
+  ]
+}

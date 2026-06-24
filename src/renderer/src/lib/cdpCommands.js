@@ -24,6 +24,11 @@ export const CDP_CATEGORIES = [
   { id: 'extend', label: 'EXTEND — Time-stretch', colour: '#f97316' },
   { id: 'mix', label: 'MIX — Combine', colour: '#22c55e' },
   { id: 'filter', label: 'FILTER', colour: '#d47500ff' },
+  { id: 'edit', label: 'EDIT — Soundfile', colour: '#14b8a6' },
+  { id: 'stretch', label: 'STRETCH — Spectral', colour: '#a855f7' },
+  { id: 'morph', label: 'MORPH — Spectral', colour: '#e879f9' },
+  { id: 'reverb', label: 'REVERB — Time', colour: '#0ea5e9' },
+  { id: 'hilite', label: 'HILITE — Spectral', colour: '#c084fc' },
 ]
 
 export const CDP_COMMANDS = [
@@ -167,6 +172,27 @@ export const CDP_COMMANDS = [
     flags: [],
   },
 
+  // BLUR CHORUS Mode 5 — chorusing by randomising partial amplitudes AND frequencies.
+  // Verified: blur chorus 5 infile outfile aspread fspread   (.ana → .ana)
+  {
+    id: 'blur_chorus',
+    program: 'blur',
+    mode: 'chorus',
+    modeNum: 5,
+    label: 'Blur Chorus',
+    category: 'blur',
+    description: 'Chorusing effect: randomise partial amplitudes and frequencies of the spectrum (Mode 5). Needs PVOC Analyse upstream and PVOC Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecblur.htm',
+    params: [
+      { id: 'aspread', label: 'Amp spread', type: 'number', default: 100, min: 0, max: 1024, help: 'Amount of amplitude randomisation (0–1024). Learning-Manual example uses 100.' },
+      { id: 'fspread', label: 'Freq spread', type: 'number', default: 1.4, min: 0, max: 4, step: 0.1, help: 'Amount of frequency randomisation (0–4). Learning-Manual example uses 1.4.' },
+    ],
+    flags: [],
+  },
+
   // ══ FOCUS — Spectral freeze (SEPARATE program) ═══════════════════
   // Doc: https://www.composersdesktop.com/docs/html/cspecfoc.htm
 
@@ -271,7 +297,7 @@ export const CDP_COMMANDS = [
     program: 'modify',
     mode: 'speed',
     modeNum: 1,
-    label: 'Speed Change',
+    label: 'Speed Change (Ratio — Mode 1)',
     category: 'modify',
     description: 'Change speed AND pitch by a ratio. Mode 1. Works on .wav directly.',
     inputExt: ['.wav'],
@@ -283,6 +309,101 @@ export const CDP_COMMANDS = [
         id: 'ratio', label: 'Speed Ratio', type: 'number',
         default: 0.5, min: 0.01, max: 32,
         help: '0.5 = half speed (pitch drops), 2.0 = double speed (pitch rises). 0.125 = massive drone.'
+      }
+    ],
+    flags: [],
+  },
+
+  // MODIFY SPEED 2 — semitone transposition
+  // Correct syntax: modify speed 2 infile.wav outfile.wav semitone-transpos [-o]
+  {
+    id: 'modify_speed_2',
+    program: 'modify',
+    mode: 'speed',
+    modeNum: 2,
+    label: 'Speed Change (Semitone — Mode 2)',
+    category: 'modify',
+    description: 'Change speed AND pitch by a constant or time-varying number of semitones. Mode 2.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#SPEED',
+    params: [
+      {
+        id: 'semitoneTranspos', label: 'Semitone Transposition', type: 'number',
+        default: 0, min: -48, max: 48,
+        supportsBreakpoint: true,
+        help: 'Transposition in semitones. 12 = octave up, -12 = octave down, 0 = no change. Can be time-varying via breakpoint file.'
+      }
+    ],
+    flags: [
+      {
+        id: 'o', label: 'Outfile Time Mode', type: 'boolean', default: false,
+        help: 'Breakpoint times are read as times in the outfile. Default: infile times.'
+      }
+    ],
+  },
+
+  // MODIFY SPEED 5 — accelerate/decelerate
+  // Correct syntax: modify speed 5 infile.wav outfile.wav accel goaltime [-sstarttime]
+  {
+    id: 'modify_speed_5',
+    program: 'modify',
+    mode: 'speed',
+    modeNum: 5,
+    label: 'Accelerate (Mode 5)',
+    category: 'modify',
+    description: 'Accelerate or decelerate a sound from current speed to a target ratio by a given output time. Mode 5.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#SPEED',
+    params: [
+      {
+        id: 'accel', label: 'Target Speed Ratio', type: 'number',
+        default: 2.0, min: 0.01, max: 32,
+        help: 'Speed ratio to reach by goaltime. 2.0 = double speed, 0.5 = half speed. If infile continues after goaltime, it keeps accelerating.'
+      },
+      {
+        id: 'goaltime', label: 'Goal Time (s)', type: 'number',
+        default: 5.0, min: 0.1, max: 3600,
+        help: 'Time in outfile at which the target speed is reached.'
+      }
+    ],
+    flags: [
+      {
+        id: 's', label: 'Start Time (s)', type: 'number', default: 0, min: 0, max: 3600,
+        help: 'Time in infile/outfile at which acceleration begins. 0 = start of file.'
+      },
+    ],
+  },
+
+  // MODIFY SPEED 6 — vibrato
+  // Correct syntax: modify speed 6 infile.wav outfile.wav vibrate vibdepth
+  {
+    id: 'modify_speed_6',
+    program: 'modify',
+    mode: 'speed',
+    modeNum: 6,
+    label: 'Vibrato (Mode 6)',
+    category: 'modify',
+    description: 'Add vibrato to a sound via frequency modulation. Mode 6.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#SPEED',
+    params: [
+      {
+        id: 'vibrate', label: 'Vibrato Rate (Hz)', type: 'number',
+        default: 5.0, min: 0.0, max: 120,
+        supportsBreakpoint: true,
+        help: 'Rate of vibrato in cycles-per-second. 5 = typical vocal vibrato, 20+ = fluttering/tremulous effect.'
+      },
+      {
+        id: 'vibdepth', label: 'Vibrato Depth (semitones)', type: 'number',
+        default: 1.0, min: 0.0, max: 96,
+        supportsBreakpoint: true,
+        help: 'Pitch deviation from centre in semitones. 1 = subtle, 3 = wide wobble, 12 = octave swing.'
       }
     ],
     flags: [],
@@ -322,6 +443,26 @@ export const CDP_COMMANDS = [
         ],
         help: '0 = silence at end, 1 = full volume. Fade-out: 1 → 0. Supports breakpoint curve.'
       }
+    ],
+    flags: [],
+  },
+
+  // MODIFY LOUDNESS Mode 1 = GAIN (single multiplier) — the Learning-Manual "GAIN".
+  // Verified: modify loudness 1 infile outfile gain
+  {
+    id: 'modify_gain',
+    program: 'modify',
+    mode: 'loudness',
+    modeNum: 1,
+    label: 'Gain (×)',
+    category: 'modify',
+    description: 'Adjust loudness by a gain factor (old GAIN / MODIFY LOUDNESS Mode 1). >1 louder, <1 quieter. Use SNDINFO MAXSAMP to find the maximum safe gain. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgromody.htm#LOUDNESS',
+    params: [
+      { id: 'gain', label: 'Gain ×', type: 'number', default: 1.0, min: 0, max: 100, step: 0.05, help: 'Amplitude multiplier. 1.0 = unchanged, 0.5 = half, 2.0 = double. Watch for clipping above the MAXSAMP-reported maximum.' },
     ],
     flags: [],
   },
@@ -527,8 +668,10 @@ export const CDP_COMMANDS = [
     params: [
       {
         id: 'octvary', label: 'Octave Variation', type: 'number',
-        default: 0.5, min: 0.01, max: 4,
-        help: 'Maximum possible transposition up or down (fractions of octaves).'
+        default: 0.5, min: 0.01, max: 8,
+        supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'inputDuration' },
+        help: 'Maximum possible transposition up or down (fractions of octaves). Range >0–8. May vary over time via a breakpoint (e.g. the Learning-Manual pitchwarp glissando).'
       }
     ],
     flags: [
@@ -1306,6 +1449,564 @@ export const CDP_COMMANDS = [
         help: 'dB level at which decaying echoes are silenced. Default: -96 dB (near-silence). Raise e.g. to -40 to cut the tail short.'
       },
     ],
+  },
+
+  // ══ EDIT — Soundfile (SFEDIT / ENVEL / HOUSEKEEP) ════════════════
+  // Docs: https://www.composersdesktop.com/docs/html/cgroedit.htm (sfedit)
+  //       https://www.composersdesktop.com/docs/html/cgroenvl.htm (envel)
+  //       https://www.composersdesktop.com/docs/html/cgrohous.htm (housekeep)
+
+  // SFEDIT CUT — keep a segment. Drives the Source-node in/out auto-trim.
+  // Verified: sfedit cut 1 infile outfile start end [-wsplice]   (mode 1 = seconds)
+  {
+    id: 'sfedit_cut',
+    program: 'sfedit',
+    mode: 'cut',
+    modeNum: 1,
+    label: 'Cut (keep segment)',
+    category: 'edit',
+    description: 'Cut and KEEP the segment between Start and End (seconds). Also used implicitly by a Source node when you set an in/out region. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroedit.htm',
+    params: [
+      {
+        id: 'start', label: 'Start (s)', type: 'number', default: 0, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        help: 'Time in the input where the kept segment begins (seconds).'
+      },
+      {
+        id: 'end', label: 'End (s)', type: 'number', default: 1, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        constraints: [ { type: 'gtParam', param: 'start' } ],
+        help: 'Time in the input where the kept segment ends (seconds). Must be greater than Start.'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice (ms)', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice window in milliseconds for the cut edges (default 15).' },
+    ],
+  },
+
+  // SFEDIT CUTEND — keep only the last N seconds.
+  // Verified: sfedit cutend 1 infile outfile length [-wsplice]
+  {
+    id: 'sfedit_cutend',
+    program: 'sfedit',
+    mode: 'cutend',
+    modeNum: 1,
+    label: 'Cut End (keep tail)',
+    category: 'edit',
+    description: 'Keep only the LAST <length> seconds, cutting away the start. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroedit.htm',
+    params: [
+      {
+        id: 'length', label: 'Keep length (s)', type: 'number', default: 1, min: 0.01, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        help: 'Length of sound to keep, ending at the end of the input (seconds).'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice (ms)', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice window in milliseconds (default 15).' },
+    ],
+  },
+
+  // SFEDIT EXCISE — remove a chunk, close the gap.
+  // Verified: sfedit excise 1 infile outfile start end [-wsplice]
+  {
+    id: 'sfedit_excise',
+    program: 'sfedit',
+    mode: 'excise',
+    modeNum: 1,
+    label: 'Excise (remove segment)',
+    category: 'edit',
+    description: 'Discard the chunk between Start and End (seconds) and close the gap. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroedit.htm',
+    params: [
+      {
+        id: 'start', label: 'Start (s)', type: 'number', default: 0, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        help: 'Start time of the excision (seconds).'
+      },
+      {
+        id: 'end', label: 'End (s)', type: 'number', default: 1, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        constraints: [ { type: 'gtParam', param: 'start' } ],
+        help: 'End time of the excision (seconds). Must be greater than Start.'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice (ms)', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice window in milliseconds (default 15).' },
+    ],
+  },
+
+  // SFEDIT INSIL — insert silence.
+  // Verified: sfedit insil 1 infile outfile time duration [-wsplice] [-o] [-s]
+  {
+    id: 'sfedit_insil',
+    program: 'sfedit',
+    mode: 'insil',
+    modeNum: 1,
+    label: 'Insert Silence',
+    category: 'edit',
+    description: 'Insert <duration> seconds of silence at <time>, pushing the file apart. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroedit.htm',
+    params: [
+      {
+        id: 'time', label: 'At time (s)', type: 'number', default: 0, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        help: 'Time at which the silence is inserted (seconds).'
+      },
+      {
+        id: 'duration', label: 'Silence (s)', type: 'number', default: 1, min: 0.001, max: 3600,
+        help: 'Duration of the inserted silence (seconds).'
+      },
+    ],
+    flags: [
+      { id: 'w', label: 'Splice (ms)', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice window in milliseconds (default 15).' },
+      { id: 'o', label: 'Overwrite (no push)', type: 'boolean', default: false, help: 'Overwrite the original with silence instead of pushing the file apart.' },
+      { id: 's', label: 'Retain end silence', type: 'boolean', default: false, help: 'Keep silence written past the file end (default rejects it).' },
+    ],
+  },
+
+  // SFEDIT JOIN — concatenate two files end-to-end (A then B). No mode number.
+  // Verified: sfedit join infile1 [infile2...] outfile [-wsplice] [-b] [-e]
+  {
+    id: 'sfedit_join',
+    program: 'sfedit',
+    mode: 'join',
+    modeNum: null,
+    label: 'Join (A then B)',
+    category: 'edit',
+    description: 'Join two soundfiles end-to-end (A then B). Connect two sources/processes to the two inputs. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    twoInputs: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroedit.htm',
+    params: [],
+    flags: [
+      { id: 'w', label: 'Splice (ms)', type: 'number', default: 15, min: 0, max: 1000, help: 'Splice duration in milliseconds (default 15).' },
+      { id: 'b', label: 'Splice start of A', type: 'boolean', default: false, help: 'Apply a splice (fade) to the start of the first file.' },
+      { id: 'e', label: 'Splice end of B', type: 'boolean', default: false, help: 'Apply a splice (fade) to the end of the last file.' },
+    ],
+  },
+
+  // ENVEL DOVETAIL — fade in the start, fade out the end.
+  // Verified: envel dovetail 1 infile outfile infadedur outfadedur intype outtype [-ttimes]
+  {
+    id: 'envel_dovetail',
+    program: 'envel',
+    mode: 'dovetail',
+    modeNum: 1,
+    label: 'Dovetail (fade in/out)',
+    category: 'edit',
+    description: 'Fade in the start and fade out the end. In/out fades are durations in seconds and must not overlap. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroenvl.htm',
+    params: [
+      { id: 'infadedur', label: 'Fade-in (s)', type: 'number', default: 0.05, min: 0, max: 3600, help: 'Duration of the start fade-in (seconds).' },
+      { id: 'outfadedur', label: 'Fade-out (s)', type: 'number', default: 0.05, min: 0, max: 3600, help: 'Duration of the end fade-out (seconds). Fades must not overlap.' },
+      { id: 'intype', label: 'In curve', type: 'select', default: 1, options: [0, 1], help: '0 = linear, 1 = exponential fade-in.' },
+      { id: 'outtype', label: 'Out curve', type: 'select', default: 1, options: [0, 1], help: '0 = linear, 1 = exponential fade-out.' },
+    ],
+    flags: [],
+  },
+
+  // ENVEL CURTAIL — fade to zero within the file (curtail the tail).
+  // Verified: envel curtail 1 sndfile outfile fadestart fadeend envtype [-ttimes]
+  {
+    id: 'envel_curtail',
+    program: 'envel',
+    mode: 'curtail',
+    modeNum: 1,
+    label: 'Curtail (fade to zero)',
+    category: 'edit',
+    description: 'Fade the sound down to zero between Fade start and Fade end (seconds), curtailing what follows. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroenvl.htm',
+    params: [
+      {
+        id: 'fadestart', label: 'Fade start (s)', type: 'number', default: 0.5, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        help: 'Start time of the fade-out (seconds).'
+      },
+      {
+        id: 'fadeend', label: 'Fade end (s)', type: 'number', default: 1, min: 0, max: 3600,
+        dependsOn: { min: { type: 'constant', value: 0 }, max: { type: 'inputDuration', fallback: 3600 } },
+        constraints: [ { type: 'gtParam', param: 'fadestart' } ],
+        help: 'End time of the fade-out, where the sound reaches zero (seconds). Must be greater than Fade start.'
+      },
+      { id: 'envtype', label: 'Curve', type: 'select', default: 1, options: [0, 1], help: '0 = linear, 1 = exponential fade.' },
+    ],
+    flags: [],
+  },
+
+  // HOUSEKEEP COPY — exact copy (old COPYSFX).
+  // Verified: housekeep copy 1 infile outfile
+  {
+    id: 'housekeep_copy',
+    program: 'housekeep',
+    mode: 'copy',
+    modeNum: 1,
+    label: 'Copy (COPYSFX)',
+    category: 'edit',
+    description: 'Make an exact copy of the soundfile (old COPYSFX). Handy to materialise a trimmed/edited result as a fresh file. Stereo/multichannel safe.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrohous.htm',
+    params: [],
+    flags: [],
+  },
+
+  // HOUSEKEEP CHANS — change channel layout (modes 3/4/5 take an explicit outfile).
+  // Verified: housekeep chans 3 infile outfile channo | 4 infile outfile [-p] | 5 infile outfile
+  // (Modes 1/2 auto-name their outputs and are excluded — they don't fit the single-output node model.)
+  {
+    id: 'housekeep_chans',
+    program: 'housekeep',
+    mode: 'chans',
+    modeNum: 'param:mode',
+    label: 'Channels (mono⇄stereo)',
+    category: 'edit',
+    description: 'Convert channel layout: mix a stereo/multichannel file down to mono (mode 4) so mono-only processes can run, expand mono to stereo (mode 5), or zero a channel (mode 3).',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrohous.htm',
+    params: [
+      {
+        id: 'mode', label: 'Mode', type: 'select', default: 4, options: [3, 4, 5],
+        help: '3 = zero one channel · 4 = mix down to mono · 5 = mono to stereo.'
+      },
+      {
+        id: 'channo', label: 'Channel #', type: 'number', default: 1, min: 1, max: 16, step: 1,
+        showIf: { paramId: 'mode', value: 3 },
+        help: 'Which channel to zero (mode 3 only).'
+      },
+    ],
+    flags: [
+      {
+        id: 'p', label: 'Invert phase (mode 4)', type: 'boolean', default: false,
+        showIf: { paramId: 'mode', value: 4 },
+        help: 'Invert phase of the 2nd stereo channel before mixing to mono.'
+      },
+    ],
+  },
+
+  // ══ STRETCH — Spectral ════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cstretch.htm
+  // Verified: stretch time 1 infile outfile timestretch   (.ana → .ana)
+  {
+    id: 'stretch_time',
+    program: 'stretch',
+    mode: 'time',
+    modeNum: 1,
+    label: 'Stretch Time',
+    category: 'stretch',
+    description: 'Time-stretch a spectral (.ana) file without changing pitch. Needs a PVOC Analyse upstream and a PVOC Synth downstream. The stretch factor may vary over time via a breakpoint.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cstretch.htm',
+    params: [
+      {
+        id: 'timestretch', label: 'Stretch ×', type: 'number', default: 2, min: 0.01, max: 100,
+        supportsBreakpoint: true,
+        breakpointTimeDomain: { type: 'inputDuration' },
+        help: 'Time-stretch factor. 2 = twice as long, 0.5 = half. >1 lengthens, <1 shortens. Supports a time-varying breakpoint.'
+      },
+    ],
+    flags: [],
+  },
+
+  // ══ MORPH — Spectral ══════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cmorph.htm
+  // Verified: morph morph mode infile infile2 outfile as ae fs fe expa expf [-sstagger]  (.ana → .ana)
+  {
+    id: 'morph_morph',
+    program: 'morph',
+    mode: 'morph',
+    modeNum: 'param:mode',
+    label: 'Morph (spectral)',
+    category: 'morph',
+    description: 'Morph one spectrum into another between two .ana files. Connect two PVOC-analysed inputs and follow with PVOC Synth. Amplitude and frequency each interpolate over their own time windows.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    twoInputs: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cmorph.htm',
+    params: [
+      { id: 'mode', label: 'Interp', type: 'select', default: 1, options: [1, 2], help: '1 = linear / exponential curve, 2 = cosinusoidal spline.' },
+      { id: 'as', label: 'Amp start (s)', type: 'number', default: 0, min: 0, max: 3600, help: 'Time when amplitude interpolation starts (seconds).' },
+      { id: 'ae', label: 'Amp end (s)', type: 'number', default: 1, min: 0, max: 3600, constraints: [ { type: 'gtParam', param: 'as' } ], help: 'Time when amplitude interpolation ends (seconds).' },
+      { id: 'fs', label: 'Freq start (s)', type: 'number', default: 0, min: 0, max: 3600, help: 'Time when frequency interpolation starts (seconds).' },
+      { id: 'fe', label: 'Freq end (s)', type: 'number', default: 1, min: 0, max: 3600, constraints: [ { type: 'gtParam', param: 'fs' } ], help: 'Time when frequency interpolation ends (seconds).' },
+      { id: 'expa', label: 'Amp exp', type: 'number', default: 1, min: 0.01, max: 10, step: 0.1, help: 'Exponent of amplitude interpolation. 1 = linear, >1 accelerating, <1 decelerating.' },
+      { id: 'expf', label: 'Freq exp', type: 'number', default: 1, min: 0.01, max: 10, step: 0.1, help: 'Exponent of frequency interpolation.' },
+    ],
+    flags: [
+      { id: 's', label: 'Stagger (s)', type: 'number', default: 0, min: 0, max: 3600, help: 'Time-delay of entry of the 2nd file (seconds).' },
+    ],
+  },
+
+  // ══ GRAIN — Granular (operations on detected grains) ═══════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgrogrns.htm
+  // Grain "ops" detect grains by a gate level and rearrange/repeat/omit them.
+  // Best on grainy sources (speech, percussion) with silences between events. MONO.
+  // Shared detection flags: -lgate -hminhole -x(ignore last grain).
+
+  // GRAIN REVERSE — reverse the ORDER of grains (not the grains themselves).
+  {
+    id: 'grain_reverse',
+    program: 'grain',
+    mode: 'reverse',
+    modeNum: null,
+    label: 'Grain Reverse',
+    category: 'grain',
+    description: 'Reverse the order of detected grains, without reversing the grains themselves. Best on grainy sounds (speech, percussion). MONO.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrogrns.htm',
+    params: [],
+    flags: [
+      { id: 'l', label: 'Gate (0–1)', type: 'number', default: 1, min: 0, max: 1, step: 0.01, help: 'Signal level required for a grain to be detected. Lower finds more (quieter) grains.' },
+      { id: 'h', label: 'Min hole (s)', type: 'number', default: 0.032, min: 0.001, max: 10, step: 0.001, help: 'Minimum duration of inter-grain silence (default 0.032).' },
+      { id: 'x', label: 'Ignore last grain', type: 'boolean', default: false, help: 'Ignore the final grain in the source.' },
+    ],
+  },
+
+  // GRAIN DUPLICATE — repeat each grain N times.
+  {
+    id: 'grain_duplicate',
+    program: 'grain',
+    mode: 'duplicate',
+    modeNum: null,
+    label: 'Grain Duplicate',
+    category: 'grain',
+    description: 'Repeat each detected grain N times in place — stutters/elongates a grainy sound. MONO.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrogrns.htm',
+    params: [
+      { id: 'N', label: 'Repetitions', type: 'number', default: 3, min: 1, max: 100, step: 1, supportsBreakpoint: true, breakpointTimeDomain: { type: 'inputDuration' }, help: 'Number of repetitions of each grain.' },
+    ],
+    flags: [
+      { id: 'l', label: 'Gate (0–1)', type: 'number', default: 1, min: 0, max: 1, step: 0.01, help: 'Signal level required for a grain to be detected.' },
+      { id: 'h', label: 'Min hole (s)', type: 'number', default: 0.032, min: 0.001, max: 10, step: 0.001, help: 'Minimum duration of inter-grain silence (default 0.032).' },
+      { id: 'x', label: 'Ignore last grain', type: 'boolean', default: false, help: 'Ignore the final grain in the source.' },
+    ],
+  },
+
+  // GRAIN OMIT — keep only some grains from each group.
+  {
+    id: 'grain_omit',
+    program: 'grain',
+    mode: 'omit',
+    modeNum: null,
+    label: 'Grain Omit',
+    category: 'grain',
+    description: 'Thin out a grainy sound: keep KEEP grains from each set of OUT-OF grains. MONO.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgrogrns.htm',
+    params: [
+      { id: 'keep', label: 'Keep', type: 'number', default: 1, min: 1, max: 100, step: 1, help: 'Number of grains to keep from the start of each group.' },
+      { id: 'outof', label: 'Out of', type: 'number', default: 2, min: 1, max: 100, step: 1, constraints: [ { type: 'gtParam', param: 'keep' } ], help: 'Size of each group of grains. Must be ≥ Keep.' },
+    ],
+    flags: [
+      { id: 'l', label: 'Gate (0–1)', type: 'number', default: 1, min: 0, max: 1, step: 0.01, help: 'Signal level required for a grain to be detected.' },
+      { id: 'h', label: 'Min hole (s)', type: 'number', default: 0.032, min: 0.001, max: 10, step: 0.001, help: 'Minimum duration of inter-grain silence (default 0.032).' },
+      { id: 'x', label: 'Ignore last grain', type: 'boolean', default: false, help: 'Ignore the final grain in the source.' },
+    ],
+  },
+
+  // ══ REVERB — Time ═════════════════════════════════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cxreverb.htm
+  // Verified: reverb infile outfile rgain mix rvbtime absorb lpfreq trailertime  (stereo out)
+  {
+    id: 'reverb',
+    program: 'reverb',
+    mode: null,
+    modeNum: null,
+    label: 'Reverb',
+    category: 'reverb',
+    description: 'Multichannel reverberator. Outputs stereo. rgain = reverb level, mix = dry/wet (1 dry → 0 wet), rvbtime = decay to −60 dB, absorb = HF damping.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cxreverb.htm',
+    params: [
+      { id: 'rgain', label: 'Reverb gain', type: 'number', default: 0.5, min: 0, max: 1, step: 0.01, help: 'Level of the dense reverb (0–1).' },
+      { id: 'mix', label: 'Dry/Wet', type: 'number', default: 0.4, min: 0, max: 1, step: 0.01, help: 'Dry/wet balance: 1.0 = all dry (source), 0.0 = all reverb.' },
+      { id: 'rvbtime', label: 'Decay (s)', type: 'number', default: 2.0, min: 0.1, max: 60, step: 0.1, help: 'Reverb decay time to −60 dB, in seconds.' },
+      { id: 'absorb', label: 'HF absorb', type: 'number', default: 0.5, min: 0, max: 1, step: 0.01, help: 'High-frequency damping to suggest air absorption (0–1).' },
+      { id: 'lpfreq', label: 'LP freq (Hz)', type: 'number', default: 8000, min: 100, max: 20000, step: 100, help: 'Low-pass cutoff applied to the reverb.' },
+      { id: 'trailertime', label: 'Trailer (s)', type: 'number', default: 1.0, min: 0, max: 60, step: 0.1, help: 'Extra time added at the end for the reverb tail.' },
+    ],
+    flags: [],
+  },
+
+  // ══ STRETCH SPECTRUM — Spectral ═══════════════════════════════════
+  // Verified: stretch spectrum mode infile outfile frq_divide maxstretch exponent [-ddepth]
+  {
+    id: 'stretch_spectrum',
+    program: 'stretch',
+    mode: 'spectrum',
+    modeNum: 'param:mode',
+    label: 'Stretch Spectrum',
+    category: 'stretch',
+    description: 'Stretch the frequencies of a spectral (.ana) file above or below a divide frequency — shifts timbre/inharmonicity. Needs PVOC Analyse upstream and Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cstretch.htm',
+    params: [
+      { id: 'mode', label: 'Direction', type: 'select', default: 1, options: [1, 2], help: '1 = stretch above the divide frequency, 2 = stretch below it.' },
+      { id: 'frq_divide', label: 'Divide (Hz)', type: 'number', default: 1000, min: 20, max: 20000, step: 10, help: 'Frequency above/below which stretching takes place.' },
+      { id: 'maxstretch', label: 'Max stretch ×', type: 'number', default: 2.0, min: 0.1, max: 16, step: 0.1, help: 'Transposition ratio of the topmost spectral components.' },
+      { id: 'exponent', label: 'Exponent', type: 'number', default: 1.0, min: 0.01, max: 10, step: 0.1, help: 'Type/curve of stretching (>0).' },
+    ],
+    flags: [
+      { id: 'd', label: 'Depth', type: 'number', default: 1, min: 0, max: 1, step: 0.01, help: 'Effect depth: 0 = none, 1 = full. May vary over time.' },
+    ],
+  },
+
+  // ══ HILITE — Spectral ═════════════════════════════════════════════
+  // Verified: hilite trace 1 infile outfile N
+  {
+    id: 'hilite_trace',
+    program: 'hilite',
+    mode: 'trace',
+    modeNum: 1,
+    label: 'Hilite Trace',
+    category: 'hilite',
+    description: 'Retain only the N loudest partials (window by window), thinning a spectrum to its strongest components. Needs PVOC Analyse upstream and Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/chilite.htm',
+    params: [
+      { id: 'N', label: 'Partials', type: 'number', default: 10, min: 1, max: 200, step: 1, supportsBreakpoint: true, breakpointTimeDomain: { type: 'inputDuration' }, help: 'Number of loudest spectral components to keep.' },
+    ],
+    flags: [],
+  },
+
+  // ══ FOCUS — Spectral (more modes) ═════════════════════════════════
+  // Verified: focus exag infile outfile exaggeration   |   focus step infile outfile timestep
+  {
+    id: 'focus_exag',
+    program: 'focus',
+    mode: 'exag',
+    modeNum: null,
+    label: 'Focus Exaggerate',
+    category: 'focus',
+    description: 'Exaggerate the spectral contour: >0 widens troughs (sharper peaks), <0 widens peaks. Needs PVOC Analyse upstream and Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cfocus.htm',
+    params: [
+      { id: 'exaggeration', label: 'Exaggeration', type: 'number', default: 2.0, min: -10, max: 10, step: 0.1, supportsBreakpoint: true, breakpointTimeDomain: { type: 'inputDuration' }, help: '>0 widens troughs (clearer peaks); <0 widens peaks (flatter). May vary over time.' },
+    ],
+    flags: [],
+  },
+  {
+    id: 'focus_step',
+    program: 'focus',
+    mode: 'step',
+    modeNum: null,
+    label: 'Focus Step-frame',
+    category: 'focus',
+    description: 'Freeze the spectrum at regular time intervals, "step-framing" the sound (output same duration as input). Needs PVOC Analyse upstream and Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cfocus.htm',
+    params: [
+      { id: 'timestep', label: 'Step (s)', type: 'number', default: 0.2, min: 0.01, max: 10, step: 0.01, help: 'Duration of each frozen step (≥ 2 analysis frames).' },
+    ],
+    flags: [],
+  },
+
+  // ══ BLUR — Spectral (more modes) ══════════════════════════════════
+  // Verified: blur suppress infile outfile N
+  {
+    id: 'blur_suppress',
+    program: 'blur',
+    mode: 'suppress',
+    modeNum: null,
+    label: 'Blur Suppress',
+    category: 'blur',
+    description: 'Suppress the N loudest partials (window by window) — the inverse of Hilite Trace; removes the most prominent components. Needs PVOC Analyse upstream and Synth downstream.',
+    inputExt: ['.ana'],
+    outputExt: '.ana',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cspecblur.htm',
+    params: [
+      { id: 'N', label: 'Suppress', type: 'number', default: 5, min: 1, max: 200, step: 1, supportsBreakpoint: true, breakpointTimeDomain: { type: 'inputDuration' }, help: 'Number of loudest spectral components to reject.' },
+    ],
+    flags: [],
+  },
+
+  // ══ ENVEL — binary envelope (.evl) operations ═════════════════════
+  // Doc: https://www.composersdesktop.com/docs/html/cgroenvl.htm
+  // Introduces the .evl binary-envelope file type as a chain intermediate.
+
+  // ENVEL EXTRACT (mode 1) — soundfile → binary envelope (.evl).
+  // Verified: envel extract 1 infile outenvfile wsize
+  {
+    id: 'envel_extract',
+    program: 'envel',
+    mode: 'extract',
+    modeNum: 1,
+    label: 'Envelope Extract (→ .evl)',
+    category: 'edit',
+    description: 'Extract the amplitude envelope of a sound to a binary .evl file. Feed the .evl into Envelope Impose to shape another sound. MONO.',
+    inputExt: ['.wav'],
+    outputExt: '.evl',
+    multichannel: false,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroenvl.htm',
+    params: [
+      { id: 'wsize', label: 'Window (ms)', type: 'number', default: 15, min: 5, max: 1000, step: 1, help: 'Window size (ms) for scanning the envelope. Smaller = finer detail.' },
+    ],
+    flags: [],
+  },
+
+  // ENVEL IMPOSE (mode 2) — impose a binary .evl envelope onto a soundfile.
+  // Verified: envel impose 2 input_sndfile imposed-envfile outsndfile  (two inputs)
+  {
+    id: 'envel_impose',
+    program: 'envel',
+    mode: 'impose',
+    modeNum: 2,
+    label: 'Envelope Impose (sound + .evl)',
+    category: 'edit',
+    description: 'Impose a binary .evl envelope (input B) onto a soundfile (input A). Connect a sound to the first input and an Envelope Extract (.evl) to the second. MONO.',
+    inputExt: ['.wav'],
+    outputExt: '.wav',
+    multichannel: false,
+    twoInputs: true,
+    docUrl: 'https://www.composersdesktop.com/docs/html/cgroenvl.htm',
+    params: [],
+    flags: [],
   },
 
 ]

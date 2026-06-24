@@ -24,3 +24,11 @@ Thumbs.db
 
 # Reference file
 Z_reference_files/
+
+# Large third-party reference material (kept local, not tracked)
+references/html/
+references/ALearningManualforCDP/
+references/*.rtf
+
+# Agent tooling
+.agents/
