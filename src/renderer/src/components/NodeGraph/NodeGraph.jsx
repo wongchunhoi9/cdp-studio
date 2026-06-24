@@ -16,8 +16,7 @@ import TextEditor, { parseBreakpointText, pointsToBreakpointText, pointsToPercen
 
 // ── Format badge ───────────────────────────────────────────────────
 function FormatBadge({ ext, side = 'in' }) {
-  const isAna = ext === '.ana'
-  const colour = isAna ? '#a78bfa' : '#22c55e'
+  const colour = ext === '.ana' ? '#a78bfa' : ext === '.evl' ? '#f59e0b' : '#22c55e'
   return (
     <span style={{
       fontSize: '0.58em', fontWeight: 700,
@@ -32,12 +31,19 @@ function FormatBadge({ ext, side = 'in' }) {
 }
 
 // ── Mini waveform for Source node ─────────────────────────────────
-function MiniWaveform({ filePath, nodeSelected }) {
+function MiniWaveform({ filePath, nodeSelected, onRegionChange, trimStart, trimEnd }) {
   const ref = useRef(null)
   const wsRef = useRef(null)
   const regionsRef = useRef(null)
+  const onRegionChangeRef = useRef(onRegionChange)
+  const trimRef = useRef({ trimStart, trimEnd })
+  const restoringRef = useRef(false)
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
+
+  // Keep latest callback + trim values without re-running the load effect.
+  onRegionChangeRef.current = onRegionChange
+  trimRef.current = { trimStart, trimEnd }
 
   useEffect(() => {
     if (!ref.current || !filePath) return
@@ -63,12 +69,23 @@ function MiniWaveform({ filePath, nodeSelected }) {
       color: 'rgba(255, 255, 255, 0.45)', // Much more visible against the green
     })
 
+    // Report the current in/out region (seconds) up to the node, or null when cleared.
+    const emitRegion = () => {
+      if (restoringRef.current) return
+      const r = wsRegions.getRegions()[0]
+      onRegionChangeRef.current?.(r ? { start: r.start, end: r.end } : null)
+    }
+
     wsRegions.on('region-created', (region) => {
       // Allow only one region; remove the rest
       wsRegions.getRegions().forEach(r => {
         if (r.id !== region.id) r.remove()
       })
+      emitRegion()
     })
+
+    wsRegions.on('region-updated', emitRegion)   // dragging the region or its edges
+    wsRegions.on('region-removed', emitRegion)   // dblclick-clear or programmatic clear
 
     wsRegions.on('region-out', (region) => {
       // Loop the region when cursor exits it
@@ -79,7 +96,16 @@ function MiniWaveform({ filePath, nodeSelected }) {
       wsRegions.clearRegions()
     })
 
-    ws.on('ready', () => setReady(true))
+    ws.on('ready', () => {
+      setReady(true)
+      // Restore a saved in/out region (e.g. after loading a session) without re-emitting it.
+      const { trimStart, trimEnd } = trimRef.current
+      if (trimStart != null && trimEnd != null && trimEnd > trimStart) {
+        restoringRef.current = true
+        wsRegions.addRegion({ start: trimStart, end: trimEnd, color: 'rgba(255, 255, 255, 0.45)' })
+        restoringRef.current = false
+      }
+    })
     ws.on('play', () => setPlaying(true))
     ws.on('pause', () => setPlaying(false))
     ws.on('finish', () => setPlaying(false))
@@ -106,6 +132,16 @@ function MiniWaveform({ filePath, nodeSelected }) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [nodeSelected])
+
+  // Clear the on-screen region when the node's in/out is cleared externally (e.g. the Clear button).
+  useEffect(() => {
+    if (!ready) return
+    if (trimStart == null && trimEnd == null && (regionsRef.current?.getRegions().length || 0) > 0) {
+      restoringRef.current = true
+      regionsRef.current.clearRegions()
+      restoringRef.current = false
+    }
+  }, [trimStart, trimEnd, ready])
 
   const togglePlay = () => {
     const isActuallyPlaying = wsRef.current?.isPlaying()
@@ -153,6 +189,19 @@ function MiniWaveform({ filePath, nodeSelected }) {
 
 // ── Source Node ────────────────────────────────────────────────────
 function SourceNode({ data, id, selected }) {
+  const [info, setInfo] = useState(null)
+  const [busyInfo, setBusyInfo] = useState(false)
+
+  // Drop any cached SNDINFO report when the loaded file changes.
+  useEffect(() => { setInfo(null) }, [data.filePath])
+
+  const fetchInfo = async () => {
+    if (!data.filePath || !window.cdpStudio?.sndinfoReport) return
+    setBusyInfo(true)
+    try { setInfo(await window.cdpStudio.sndinfoReport(data.filePath)) }
+    finally { setBusyInfo(false) }
+  }
+
   const handleBrowse = async () => {
     if (!window.cdpStudio) return
     const result = await window.cdpStudio.openFile()
@@ -205,16 +254,61 @@ function SourceNode({ data, id, selected }) {
                 {data.audioInfo.channels}ch · {(data.audioInfo.sampleRate / 1000).toFixed(1)}kHz · {fmt(data.audioInfo.duration)}
               </div>
             )}
-            <MiniWaveform filePath={data.filePath} nodeSelected={selected} />
+            {data.trimStart != null && data.trimEnd != null && (
+              <div style={{ fontSize: '0.62em', color: '#2dd4bf', marginBottom: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>✂ {data.trimStart.toFixed(2)}s → {data.trimEnd.toFixed(2)}s · {(data.trimEnd - data.trimStart).toFixed(2)}s</span>
+                <button
+                  className="nodrag"
+                  onClick={() => data.onUpdate(id, { trimStart: null, trimEnd: null })}
+                  title="Clear in/out region — the whole file will be processed"
+                  style={{ background: 'none', border: '1px solid #14b8a655', color: '#2dd4bf', borderRadius: 3, fontSize: '0.85em', padding: '0 4px', cursor: 'pointer' }}
+                >clear</button>
+              </div>
+            )}
+            <MiniWaveform
+              filePath={data.filePath}
+              nodeSelected={selected}
+              trimStart={data.trimStart}
+              trimEnd={data.trimEnd}
+              onRegionChange={(r) => data.onUpdate(id, { trimStart: r?.start ?? null, trimEnd: r?.end ?? null })}
+            />
+            <div style={{ fontSize: '0.58em', color: 'var(--text-muted)', marginTop: 3, opacity: 0.8 }}>
+              Drag to set in/out · double-click to clear
+            </div>
           </>
         ) : (
           <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
             No file loaded — drop a clip here
           </div>
         )}
-        <button onClick={handleBrowse} style={{ ...smallBtnStyle('#22c55e'), marginTop: 8 }}>
-          {data.filePath ? 'Change File' : 'Load WAV…'}
-        </button>
+        {data.filePath ? (
+          <div className="nodrag" style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button onClick={handleBrowse} style={{ ...smallBtnStyle('#22c55e'), flex: 1 }}>
+              Change File
+            </button>
+            <button onClick={() => info ? setInfo(null) : fetchInfo()} title="Sound info — SNDINFO props / len / maxsamp / loudchan"
+              style={{ ...smallBtnStyle('#334155') }}>
+              {busyInfo ? '…' : info ? 'ⓘ Hide' : 'ⓘ Info'}
+            </button>
+          </div>
+        ) : (
+          <button onClick={handleBrowse} style={{ ...smallBtnStyle('#22c55e'), marginTop: 8 }}>
+            Load WAV…
+          </button>
+        )}
+        {info && (
+          <div className="nodrag" style={{
+            marginTop: 6, background: '#020a06', border: '1px solid #1a3a22', borderRadius: 4,
+            padding: '6px 8px', fontSize: '0.62em', fontFamily: 'monospace', color: '#9ca3af',
+            whiteSpace: 'pre-wrap', maxHeight: 170, overflowY: 'auto',
+          }}>
+            {['props', 'len', 'maxsamp', 'loudchan'].map(m => (info[m]?.ok && info[m].text) ? (
+              <div key={m} style={{ marginBottom: 5 }}>
+                <span style={{ color: '#22c55e', fontWeight: 700 }}>{m.toUpperCase()}</span>{'\n'}{info[m].text}
+              </div>
+            ) : null)}
+          </div>
+        )}
       </div>
       <Handle type="source" position={Position.Right} style={handleStyle('#22c55e')} />
     </div>
@@ -539,19 +633,15 @@ function ProcessNode({ data, id, selected }) {
           </div>
         )}
 
-        {/* Doc link + AI help */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-          {command.docUrl && (
+        {/* Doc link */}
+        {command.docUrl && (
+          <div style={{ display: 'flex', marginTop: 4 }}>
             <a href={command.docUrl} target="_blank" rel="noreferrer"
               style={{ ...smallBtnStyle('#334155'), flex: 1, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
               📖 Docs
             </a>
-          )}
-          <button onClick={() => data.onAIHelp?.(command)}
-            style={{ ...smallBtnStyle('#334155'), flex: 1 }}>
-            ? AI
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       <Handle type="source" position={Position.Right} style={handleStyle(colour)} />
@@ -1016,6 +1106,8 @@ export default function NodeGraph({ onAIHelp }) {
     { id: 'e2', source: 'process-1', target: 'output-1', animated: false, style: { stroke: '#6366f1' } },
   ])
   const [showPicker, setShowPicker] = useState(false)
+  const [examplePicker, setExamplePicker] = useState(null)  // null = closed, array = list of examples
+  const [dirsfResult, setDirsfResult] = useState(null)      // null = closed, { dir, text } = DIRSF listing
   const [selectedCat, setSelectedCat] = useState('pvoc')
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
@@ -1089,6 +1181,34 @@ export default function NodeGraph({ onAIHelp }) {
     // Mark chain as running
     updateNodeData(outputNodeId, { chainRunning: true, filePath: null })
     processChain.forEach(n => updateNodeData(n.id, { status: 'waiting' }))
+
+    // ── Source in/out trim (implicit `sfedit cut` pre-step) ──────────
+    // For each feeding source with a valid in/out region that doesn't span
+    // the whole file, cut it first and feed the trimmed segment into the chain.
+    for (const n of allNodes) {
+      if (n.type !== 'source' || !n.data.filePath || !visited.has(n.id)) continue
+      const { filePath, trimStart, trimEnd, audioInfo } = n.data
+      const hasTrim = trimStart != null && trimEnd != null && trimEnd > trimStart + 0.001
+      const dur = audioInfo?.duration ?? 0
+      const spansWhole = dur > 0 && trimStart <= 0.005 && trimEnd >= dur - 0.005
+      if (!hasTrim || spansWhole) continue
+
+      const cutCmd = getCommandById('sfedit_cut')
+      const cutOutPath = await buildOutputPath(filePath, 'sfedit_cut')
+      const cutArgs = buildArgs({
+        command: cutCmd, inputPath: filePath, input2Path: null,
+        outputPath: cutOutPath, paramValues: { start: trimStart, end: trimEnd },
+      })
+      const cutRes = await window.cdpStudio.runCDP({
+        program: cutCmd.program, args: cutArgs, outputPath: cutOutPath, label: 'Cut (in/out)',
+      })
+      if (!cutRes.success) {
+        updateNodeData(outputNodeId, { chainRunning: false })
+        alert(`Failed to trim source "${n.data.label || filePath.split('/').pop()}" to its in/out region.`)
+        return
+      }
+      nodeOutputs[n.id] = cutOutPath
+    }
 
     let lastClipId = null
 
@@ -1362,6 +1482,65 @@ export default function NodeGraph({ onAIHelp }) {
     setShowPicker(false)
   }
 
+  // ── Session save / load ──────────────────────────────────────────
+  // Serialize the graph, stripping function callbacks + transient run state.
+  const serializeGraph = () => {
+    const TRANSIENT = new Set(['onUpdate', 'onRenderChain', 'onAIHelp', 'status', 'chainRunning'])
+    const nodes = nodesRef.current.map(n => {
+      const data = {}
+      for (const [k, v] of Object.entries(n.data || {})) {
+        if (TRANSIENT.has(k) || typeof v === 'function') continue
+        data[k] = v
+      }
+      return { id: n.id, type: n.type, position: n.position, deletable: n.deletable, data }
+    })
+    return { version: 1, app: 'cdp-studio', nodes, edges: edgesRef.current }
+  }
+
+  // Restore a serialized graph, re-attaching the callbacks the wiring effects
+  // would otherwise only attach on mount.
+  const loadGraph = (data) => {
+    if (!data || !Array.isArray(data.nodes)) return
+    const nodes = data.nodes.map(n => {
+      const d = { ...n.data, status: null }
+      if (n.type === 'source') d.onUpdate = updateNodeData
+      if (n.type === 'process') { d.onUpdate = updateNodeData; d.onAIHelp = onAIHelp }
+      if (n.type === 'breakpointFile') d.onUpdate = updateNodeData
+      if (n.type === 'output') { d.onRenderChain = renderChain; d.filePath = null; d.chainRunning = false }
+      return { ...n, data: d }
+    })
+    setNodes(nodes)
+    setEdges(data.edges || [])
+  }
+
+  const handleSaveSession = async () => {
+    // The native save dialog lets the user name the file; 'session' is just the default.
+    await window.cdpStudio.saveSession('session', serializeGraph())
+  }
+
+  const handleOpenSession = async () => {
+    const res = await window.cdpStudio.loadSession()
+    if (res?.loaded) loadGraph(res.data)
+  }
+
+  // NB: Electron has no window.prompt(), so the example chooser is an in-app popover.
+  const handleOpenExample = async () => {
+    const list = (await window.cdpStudio.listExamples?.()) || []
+    if (!list.length) { alert('No example sessions are bundled yet.'); return }
+    setExamplePicker(list)
+  }
+
+  const loadExampleByName = async (name) => {
+    setExamplePicker(null)
+    const res = await window.cdpStudio.loadExample(name)
+    if (res?.loaded) loadGraph(res.data)
+  }
+
+  const handleDirsf = async () => {
+    const res = await window.cdpStudio.dirsfList?.()
+    if (res?.ok) setDirsfResult(res)
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--nodegraph-bg)' }}>
       <style>{`
@@ -1453,6 +1632,56 @@ export default function NodeGraph({ onAIHelp }) {
               style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: '#ec4899', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
               + Breakpoint
             </button>
+            <button onClick={handleDirsf} title="List the soundfiles in a folder (DIRSF)"
+              style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 8, padding: '7px 14px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+              📁 Soundfiles
+            </button>
+          </div>
+        </Panel>
+        {dirsfResult && (
+          <Panel position="top-left">
+            <div style={{ marginTop: 48, background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: 8, padding: 8, maxWidth: 560, boxShadow: '0 6px 20px rgba(0,0,0,0.45)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontSize: '0.66em', color: 'var(--text-muted)' }}>DIRSF · {dirsfResult.dir}</span>
+                <button onClick={() => setDirsfResult(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1em' }}>✕</button>
+              </div>
+              <pre style={{ margin: 0, fontSize: '0.62em', color: '#9ca3af', maxHeight: 260, overflow: 'auto', whiteSpace: 'pre' }}>{dirsfResult.text}</pre>
+            </div>
+          </Panel>
+        )}
+        <Panel position="top-right">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={handleSaveSession} title="Save the current node graph as a .cdpproject file"
+                style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 8, padding: '7px 12px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+                Save Session
+              </button>
+              <button onClick={handleOpenSession} title="Open a saved .cdpproject session"
+                style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: 'var(--text-bright)', borderRadius: 8, padding: '7px 12px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+                Open Session
+              </button>
+              <button onClick={handleOpenExample} title="Open a bundled tutorial example"
+                style={{ background: 'var(--border-dim)', border: '1px solid var(--border-light)', color: '#14b8a6', borderRadius: 8, padding: '7px 12px', fontSize: '0.8em', cursor: 'pointer', fontWeight: 600 }}>
+                Open Example…
+              </button>
+            </div>
+            {examplePicker && (
+              <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: 8, padding: 6, minWidth: 240, boxShadow: '0 6px 20px rgba(0,0,0,0.45)' }}>
+                <div style={{ fontSize: '0.66em', color: 'var(--text-muted)', padding: '2px 6px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Choose a tutorial example</div>
+                {examplePicker.map(ex => (
+                  <button key={ex.name} onClick={() => loadExampleByName(ex.name)}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--text-bright)', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: '0.78em' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border-dim)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                    {ex.name}
+                  </button>
+                ))}
+                <button onClick={() => setExamplePicker(null)}
+                  style={{ ...smallBtnStyle('#475569'), marginTop: 4, width: '100%' }}>
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </Panel>
         <Panel position="bottom-center">

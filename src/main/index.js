@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { spawn, execFile } from 'child_process'
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync, symlinkSync, copyFileSync, rmSync } from 'fs'
 import Store from 'electron-store'
 import { randomUUID } from 'crypto'
 
@@ -57,6 +57,41 @@ function getProjectDir() {
   const dir = join(app.getPath('userData'), 'projects')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
+}
+
+// Bundled tutorial examples: dev = <repo>/resources/examples, packaged = <resources>/examples
+function getExamplesDir() {
+  const candidates = [
+    join(app.getAppPath(), 'resources', 'examples'),
+    join(process.cwd(), 'resources', 'examples'),
+    join(__dirname, '..', '..', 'resources', 'examples'),
+    join(process.resourcesPath || app.getAppPath(), 'examples'),
+  ]
+  return candidates.find(p => existsSync(p)) || candidates[0]
+}
+
+// Resolve bundled assets referenced by basename (source wavs, breakpoint/data files) against
+// the session/example file's own directory. Absolute paths (containing '/') are left untouched,
+// so normal user sessions are unaffected.
+function resolveSessionPaths(data, baseDir) {
+  const resolve = (v, exts) =>
+    (typeof v === 'string' && exts.test(v) && !v.includes('/')) ? join(baseDir, v) : v
+  for (const n of data.nodes || []) {
+    if (n.type === 'source' && n.data?.filePath) {
+      n.data.filePath = resolve(n.data.filePath, /\.(wav|aif|aiff)$/i)
+    }
+    if (n.data?.paramValues) {
+      for (const k of Object.keys(n.data.paramValues)) {
+        n.data.paramValues[k] = resolve(n.data.paramValues[k], /\.(brk|txt)$/i)
+      }
+    }
+    if (n.data?.breakpointConnections) {
+      for (const k of Object.keys(n.data.breakpointConnections)) {
+        n.data.breakpointConnections[k] = resolve(n.data.breakpointConnections[k], /\.(brk|txt)$/i)
+      }
+    }
+  }
+  return data
 }
 
 // ── Window ──────────────────────────────────────────────────────────
@@ -178,6 +213,37 @@ ipcMain.handle('cdp:stop', async () => {
     return true
   }
   return false
+})
+
+// ── SNDINFO inspector: run info modes and return their text ──────────
+function stripCdpBanner(text) {
+  return (text || '').split('\n').filter(l => !/^CDP Release/i.test(l.trim())).join('\n').trim()
+}
+ipcMain.handle('sndinfo:report', async (_, filePath) => {
+  const bin = getCDPBinPath()
+  const run = (mode) => new Promise((res) => {
+    execFile(join(bin, 'sndinfo'), [mode, filePath], { timeout: 20000 }, (err, stdout, stderr) => {
+      res({ ok: !err, text: stripCdpBanner((stdout || '') + (stderr || '')) })
+    })
+  })
+  const out = {}
+  for (const mode of ['props', 'len', 'maxsamp', 'loudchan']) out[mode] = await run(mode)
+  return out
+})
+
+// ── DIRSF: list the soundfiles in a chosen directory ─────────────────
+ipcMain.handle('dirsf:list', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
+  if (result.canceled || !result.filePaths[0]) return { ok: false }
+  const dir = result.filePaths[0]
+  const bin = getCDPBinPath()
+  return new Promise((res) => {
+    // dirsf lists the soundfiles in its working directory.
+    execFile(join(bin, 'dirsf'), [], { cwd: dir, timeout: 20000 }, (err, stdout, stderr) => {
+      const text = stripCdpBanner((stdout || '') + (stderr || ''))
+      res({ ok: !!text, dir, text })
+    })
+  })
 })
 
 // ── Get audio file info (channels, samplerate, duration) ────────────
@@ -315,9 +381,30 @@ ipcMain.handle('session:load', async () => {
   })
   if (!result.canceled && result.filePaths[0]) {
     const data = JSON.parse(readFileSync(result.filePaths[0], 'utf-8'))
+    // Resolve any basename-only assets (e.g. an example opened via this dialog) against its folder.
+    resolveSessionPaths(data, dirname(result.filePaths[0]))
     return { loaded: true, data, path: result.filePaths[0] }
   }
   return { loaded: false }
+})
+
+// ── Examples: list bundled tutorial sessions ─────────────────────────
+ipcMain.handle('examples:list', async () => {
+  const dir = getExamplesDir()
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter(f => f.endsWith('.cdpproject'))
+    .map(f => ({ name: f.replace(/\.cdpproject$/, ''), path: join(dir, f) }))
+})
+
+// ── Examples: load a bundled session, resolving source paths to the examples dir ──
+ipcMain.handle('examples:load', async (_, name) => {
+  const dir = getExamplesDir()
+  const filePath = join(dir, `${name}.cdpproject`)
+  if (!existsSync(filePath)) return { loaded: false }
+  const data = JSON.parse(readFileSync(filePath, 'utf-8'))
+  resolveSessionPaths(data, dir)
+  return { loaded: true, data, path: filePath }
 })
 
 // ── Settings ────────────────────────────────────────────────────────
@@ -344,6 +431,105 @@ ipcMain.handle('audio:readAsDataURL', async (_, filePath) => {
     return `data:${mime};base64,${data.toString('base64')}`
   } catch (e) {
     return null
+  }
+})
+
+// ── MIX helpers ─────────────────────────────────────────────────────
+// SUBMIX uses whitespace-delimited mixfiles — paths with spaces (e.g. macOS
+// "Application Support") break parsing. We work in a /tmp sub-dir with no
+// spaces, creating symlinks for any clip paths that contain spaces.
+
+function buildMixLine(filePath, item) {
+  const start = Number(item.start).toFixed(3)
+  const level = Number(item.level).toFixed(4)
+  if (Number(item.channels) <= 1) {
+    return `${filePath}  ${start}  1  ${level}  ${Number(item.pan).toFixed(4)}`
+  }
+  return `${filePath}  ${start}  2  ${level}`
+}
+
+function makeSafeLinks(items, tmpBase) {
+  return items.map((item, i) => {
+    let filePath = item.filePath
+    if (filePath.includes(' ')) {
+      const ext = filePath.split('.').pop().toLowerCase()
+      const linkPath = join(tmpBase, `clip${i}.${ext}`)
+      symlinkSync(filePath, linkPath)
+      filePath = linkPath
+    }
+    return buildMixLine(filePath, item)
+  })
+}
+
+// ── MIX: write a mixfile and run submix mix ─────────────────────────
+ipcMain.handle('mix:render', async (_, { items, outName, opts = {} }) => {
+  const ts = Date.now()
+  const tmpBase = join(app.getPath('temp'), `cdp_mix_${ts}`)
+  mkdirSync(tmpBase, { recursive: true })
+
+  try {
+    const lines = makeSafeLinks(items, tmpBase)
+    const mixfilePath = join(tmpBase, 'mixfile.txt')
+    const tmpOutPath = join(tmpBase, 'output.wav')
+    writeFileSync(mixfilePath, lines.join('\n') + '\n')
+
+    const bin = getCDPBinPath()
+    const args = ['mix', mixfilePath, tmpOutPath]
+    if (opts.start != null) args.push(`-s${opts.start}`)
+    if (opts.end != null) args.push(`-e${opts.end}`)
+    if (opts.atten != null) args.push(`-g${opts.atten}`)
+    if (opts.append) args.push('-a')
+
+    return await new Promise((resolve) => {
+      const commandString = `submix mix <mixfile> <output>`
+      mainWindow.webContents.send('terminal:append', {
+        type: 'command', text: `submix ${args.slice(0, 1).concat(['mixfile.txt', 'output.wav', ...args.slice(3)]).join(' ')}`,
+        timestamp: new Date().toISOString()
+      })
+      execFile(join(bin, 'submix'), args, { timeout: 120000 }, (error, stdout, stderr) => {
+        if (error) {
+          mainWindow.webContents.send('terminal:append', {
+            type: 'error', text: stderr || error.message, timestamp: new Date().toISOString()
+          })
+          resolve({ success: false, error: error.message, stderr })
+          return
+        }
+        // Copy output from temp (no-spaces) to clip bin
+        const clipDir = getClipDir()
+        const safeName = (outName || 'mix_output').replace(/[^a-zA-Z0-9_-]/g, '_')
+        const outPath = join(clipDir, `${safeName}_${ts}.wav`)
+        copyFileSync(tmpOutPath, outPath)
+        mainWindow.webContents.send('terminal:append', {
+          type: 'success', text: `✓ Mix → ${outPath}`, timestamp: new Date().toISOString()
+        })
+        resolve({ success: true, outputPath: outPath, command: commandString })
+      })
+    })
+  } finally {
+    try { rmSync(tmpBase, { recursive: true, force: true }) } catch {}
+  }
+})
+
+// ── MIX: check peak level of a mixfile ─────────────────────────────
+ipcMain.handle('mix:getlevel', async (_, items) => {
+  const ts = Date.now()
+  const tmpBase = join(app.getPath('temp'), `cdp_lvl_${ts}`)
+  mkdirSync(tmpBase, { recursive: true })
+  try {
+    const lines = makeSafeLinks(items, tmpBase)
+    const mixfilePath = join(tmpBase, 'mixfile.txt')
+    writeFileSync(mixfilePath, lines.join('\n') + '\n')
+    const bin = getCDPBinPath()
+    return await new Promise((resolve) => {
+      execFile(join(bin, 'submix'), ['getlevel', '1', mixfilePath], { timeout: 30000 }, (error, stdout, stderr) => {
+        const text = ((stdout || '') + (stderr || '')).trim()
+        // "MAX SAMPLE ENCOUNTERED : 0.975042 at ..."
+        const match = text.match(/MAX SAMPLE ENCOUNTERED\s*:\s*([0-9.]+)/i)
+        resolve({ ok: !error, maxlevel: match ? parseFloat(match[1]) : null, text })
+      })
+    })
+  } finally {
+    try { rmSync(tmpBase, { recursive: true, force: true }) } catch {}
   }
 })
 

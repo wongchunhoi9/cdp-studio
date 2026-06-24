@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "app": "cdp-studio",
+  "title": "Topic II · Doc2-2 — Basic Modifications",
+  "description": "A sampler of the implemented \"basic modifications\": Reverse, Transpose, Vibrato, Loop, and a spectral Timestretch (PVOC anal → stretch → synth). Render each output.",
+  "nodes": [
+    {
+      "id": "s",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 300
+      },
+      "data": {
+        "filePath": "capm.wav",
+        "label": "capm.wav",
+        "audioInfo": {
+          "channels": 1,
+          "sampleRate": 44100,
+          "duration": 8.18
+        }
+      }
+    },
+    {
+      "id": "p_rev",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 40
+      },
+      "data": {
+        "commandId": "modify_radical_reverse",
+        "paramValues": {},
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_rev",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 40
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_tr",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 160
+      },
+      "data": {
+        "commandId": "modify_speed_2",
+        "paramValues": {
+          "semitoneTranspos": -7
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_tr",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 160
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_vib",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 280
+      },
+      "data": {
+        "commandId": "modify_speed_6",
+        "paramValues": {
+          "vibrate": 5,
+          "vibdepth": 1
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_vib",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 280
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_loop",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 400
+      },
+      "data": {
+        "commandId": "extend_loop",
+        "paramValues": {
+          "start": 0.5,
+          "len": 300,
+          "step": 200
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_loop",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 620,
+        "y": 400
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_anal",
+      "type": "process",
+      "position": {
+        "x": 360,
+        "y": 520
+      },
+      "data": {
+        "commandId": "pvoc_anal",
+        "paramValues": {
+          "c": 1024
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_str",
+      "type": "process",
+      "position": {
+        "x": 580,
+        "y": 520
+      },
+      "data": {
+        "commandId": "stretch_time",
+        "paramValues": {
+          "timestretch": 2
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_syn",
+      "type": "process",
+      "position": {
+        "x": 800,
+        "y": 520
+      },
+      "data": {
+        "commandId": "pvoc_synth",
+        "paramValues": {},
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_str",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 1040,
+        "y": 520
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-s-p_rev",
+      "source": "s",
+      "target": "p_rev",
+      "deletable": true
+    },
+    {
+      "id": "e-p_rev-o_rev",
+      "source": "p_rev",
+      "target": "o_rev",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_tr",
+      "source": "s",
+      "target": "p_tr",
+      "deletable": true
+    },
+    {
+      "id": "e-p_tr-o_tr",
+      "source": "p_tr",
+      "target": "o_tr",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_vib",
+      "source": "s",
+      "target": "p_vib",
+      "deletable": true
+    },
+    {
+      "id": "e-p_vib-o_vib",
+      "source": "p_vib",
+      "target": "o_vib",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_loop",
+      "source": "s",
+      "target": "p_loop",
+      "deletable": true
+    },
+    {
+      "id": "e-p_loop-o_loop",
+      "source": "p_loop",
+      "target": "o_loop",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_anal",
+      "source": "s",
+      "target": "p_anal",
+      "deletable": true
+    },
+    {
+      "id": "e-p_anal-p_str",
+      "source": "p_anal",
+      "target": "p_str",
+      "deletable": true
+    },
+    {
+      "id": "e-p_str-p_syn",
+      "source": "p_str",
+      "target": "p_syn",
+      "deletable": true
+    },
+    {
+      "id": "e-p_syn-o_str",
+      "source": "p_syn",
+      "target": "o_str",
+      "deletable": true
+    }
+  ]
+}

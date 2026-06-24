@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "app": "cdp-studio",
+  "title": "Topic II · Doc2-4 — Suppleness (time-varying)",
+  "description": "Time-varying design. Sound-prep chain (GAIN 3× → CUT 1.49s → transpose down 2 octaves), a time-varying DISTORT PITCH driven by a breakpoint, and the DRUNK \"further study\". The TEXTURE multi-event textures are Topic 5 (not yet implemented).",
+  "nodes": [
+    {
+      "id": "s",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 240
+      },
+      "data": {
+        "filePath": "capm.wav",
+        "label": "capm.wav",
+        "audioInfo": {
+          "channels": 1,
+          "sampleRate": 44100,
+          "duration": 8.18
+        }
+      }
+    },
+    {
+      "id": "p_gain",
+      "type": "process",
+      "position": {
+        "x": 300,
+        "y": 80
+      },
+      "data": {
+        "commandId": "modify_gain",
+        "paramValues": {
+          "gain": 3
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_cut",
+      "type": "process",
+      "position": {
+        "x": 520,
+        "y": 80
+      },
+      "data": {
+        "commandId": "sfedit_cut",
+        "paramValues": {
+          "start": 0,
+          "end": 1.49
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_oct",
+      "type": "process",
+      "position": {
+        "x": 740,
+        "y": 80
+      },
+      "data": {
+        "commandId": "modify_speed_2",
+        "paramValues": {
+          "semitoneTranspos": -24
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_prep",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 980,
+        "y": 80
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_tvd",
+      "type": "process",
+      "position": {
+        "x": 300,
+        "y": 260
+      },
+      "data": {
+        "commandId": "distort_pitch",
+        "paramValues": {
+          "octvary": "tv-octvary.brk"
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_tvd",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 540,
+        "y": 260
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    },
+    {
+      "id": "p_drunk",
+      "type": "process",
+      "position": {
+        "x": 300,
+        "y": 400
+      },
+      "data": {
+        "commandId": "extend_drunk",
+        "paramValues": {
+          "outdur": 10
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o_drunk",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 540,
+        "y": 400
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-s-p_gain",
+      "source": "s",
+      "target": "p_gain",
+      "deletable": true
+    },
+    {
+      "id": "e-p_gain-p_cut",
+      "source": "p_gain",
+      "target": "p_cut",
+      "deletable": true
+    },
+    {
+      "id": "e-p_cut-p_oct",
+      "source": "p_cut",
+      "target": "p_oct",
+      "deletable": true
+    },
+    {
+      "id": "e-p_oct-o_prep",
+      "source": "p_oct",
+      "target": "o_prep",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_tvd",
+      "source": "s",
+      "target": "p_tvd",
+      "deletable": true
+    },
+    {
+      "id": "e-p_tvd-o_tvd",
+      "source": "p_tvd",
+      "target": "o_tvd",
+      "deletable": true
+    },
+    {
+      "id": "e-s-p_drunk",
+      "source": "s",
+      "target": "p_drunk",
+      "deletable": true
+    },
+    {
+      "id": "e-p_drunk-o_drunk",
+      "source": "p_drunk",
+      "target": "o_drunk",
+      "deletable": true
+    }
+  ]
+}

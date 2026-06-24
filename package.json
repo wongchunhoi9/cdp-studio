@@ -32,6 +32,6 @@
       "target": "dmg"
     },
     "files": ["out/**/*"],
-    "extraResources": []
+    "extraResources": [{ "from": "resources/examples", "to": "examples" }]
   }
 }

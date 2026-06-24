@@ -144,6 +144,12 @@ export default function ClipBin({ onClipSelect, selectedClipId }) {
             draggable
             onDragStart={e => {
               e.dataTransfer.setData('text/plain', clip.filePath)
+              e.dataTransfer.setData('application/cdp-clip', JSON.stringify({
+                id: clip.id, name: clip.name, filePath: clip.filePath,
+                channels: clip.channels, sampleRate: clip.sampleRate,
+                duration: clip.duration, channelFormat: clip.channelFormat,
+                colour: clip.colour,
+              }))
               e.dataTransfer.effectAllowed = 'copy'
             }}
             style={{

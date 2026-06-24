@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "app": "cdp-studio",
+  "title": "Topic I · Doc1-3 — Basic Soundfile Editing",
+  "description": "The everyday editing trio: CUT (sfedit cut) → GAIN (modify loudness 1) → DOVETAIL (envel dovetail fades). DIRSF / MAXSAMP / SFLEN are information commands (use the inspector, not the chain).",
+  "nodes": [
+    {
+      "id": "s",
+      "type": "source",
+      "position": {
+        "x": 40,
+        "y": 200
+      },
+      "data": {
+        "filePath": "horn.wav",
+        "label": "horn.wav",
+        "audioInfo": {
+          "channels": 1,
+          "sampleRate": 44100,
+          "duration": 5.39
+        }
+      }
+    },
+    {
+      "id": "p_cut",
+      "type": "process",
+      "position": {
+        "x": 320,
+        "y": 200
+      },
+      "data": {
+        "commandId": "sfedit_cut",
+        "paramValues": {
+          "start": 0.5,
+          "end": 4
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_gain",
+      "type": "process",
+      "position": {
+        "x": 540,
+        "y": 200
+      },
+      "data": {
+        "commandId": "modify_gain",
+        "paramValues": {
+          "gain": 1.5
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "p_dove",
+      "type": "process",
+      "position": {
+        "x": 760,
+        "y": 200
+      },
+      "data": {
+        "commandId": "envel_dovetail",
+        "paramValues": {
+          "infadedur": 0.3,
+          "outfadedur": 0.3,
+          "intype": 1,
+          "outtype": 1
+        },
+        "inputPath": null,
+        "status": null
+      }
+    },
+    {
+      "id": "o",
+      "type": "output",
+      "deletable": false,
+      "position": {
+        "x": 1000,
+        "y": 200
+      },
+      "data": {
+        "filePath": null,
+        "audioInfo": null,
+        "chainRunning": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-s-p_cut",
+      "source": "s",
+      "target": "p_cut",
+      "deletable": true
+    },
+    {
+      "id": "e-p_cut-p_gain",
+      "source": "p_cut",
+      "target": "p_gain",
+      "deletable": true
+    },
+    {
+      "id": "e-p_gain-p_dove",
+      "source": "p_gain",
+      "target": "p_dove",
+      "deletable": true
+    },
+    {
+      "id": "e-p_dove-o",
+      "source": "p_dove",
+      "target": "o",
+      "deletable": true
+    }
+  ]
+}
